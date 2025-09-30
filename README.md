@@ -15,9 +15,9 @@ Transform how compute power is accessed and shared by creating a frictionless ma
 
 - 🧠 **ONNX Model Execution** - Run AI inference tasks using industry-standard ONNX models
 - 📁 **Multiple input/outputs formats** - Input can be plain text, images, videos, numpy tensors
-- 💰 **Automated Payments** - Stripe integration with 10% platform commission
+- 💰 **Automated Payments** - Stripe integration with platform commission, centralized on the platform
 - ⚡ **Real-time Updates** - SignalR-powered live task status and progress tracking
-- 🖥️ **Native Desktop Client** - WinUI 3 application for seamless background compute execution
+- 🖥️ **Native Desktop Client** - WinUI 3 application for seamless and native background compute execution
 - 🔐 **Secure Authentication** - JWT-based auth with comprehensive user management
 - 📊 **Financial Dashboard** - Track earnings, settlements, and payment history
 - 🎨 **Modern UI** - Beautiful, responsive interface built with React and TailwindCSS
