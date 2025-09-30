@@ -1,8 +1,8 @@
 # 🚀 InfiniteGPU
 
-<img width="1907" height="1090" alt="image" src="https://github.com/user-attachments/assets/0e169d5f-3a19-43ed-93e6-607a1f1d12b6" />
-
 **Democratizing AI Compute Power Through Decentralized Resource Sharing**
+
+<img width="1907" height="1090" alt="image" src="https://github.com/user-attachments/assets/0e169d5f-3a19-43ed-93e6-607a1f1d12b6" />
 
 InfiniteGPU is a production-ready platform that enables effortless exchange of compute resources for AI workloads. Requestors can offload intensive AI inference tasks to a distributed network of providers, while providers monetize their idle NPU/GPU/CPU capacity, orchestrated through a web interface and native desktop application.
 
