@@ -282,15 +282,6 @@ dotnet publish -c Release -r win-x64
 msbuild /t:Publish /p:Configuration=Release
 ```
 
-## 📖 Documentation
-
-Detailed architecture and design documentation available in [`docs/`](./docs/):
-- [`architecture.md`](./docs/architecture.md) - System architecture overview
-- [`auth-password-reset-design.md`](./docs/auth-password-reset-design.md) - Authentication flow
-- [`compute-executor-alignment.md`](./docs/compute-executor-alignment.md) - Desktop executor design
-- [`stripe.md`](./docs/stripe.md) - Payment integration details
-- [`subgraph-partition-orchestration.md`](./docs/subgraph-partition-orchestration.md) - Task distribution strategy
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
