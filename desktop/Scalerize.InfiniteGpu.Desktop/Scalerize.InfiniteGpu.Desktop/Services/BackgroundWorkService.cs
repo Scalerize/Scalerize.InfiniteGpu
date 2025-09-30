@@ -21,9 +21,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
     {
         private const string ExecutionRequestedEventName = "OnExecutionRequested";
 #if DEBUG
-        public static readonly Uri BackendBaseUri = new("http://localhost:5116/");
+        public static readonly Uri DefaultBackendBaseUri = new("http://localhost:5116/");
 #else
-        public static readonly Uri BackendBaseUri = new("https://backend.infinite-gpu.scalerize.fr/")
+        public static readonly Uri DefaultBackendBaseUri = new("https://backend.infinite-gpu.scalerize.fr/");
 #endif
         private static readonly TimeSpan ConnectionRetryDelay = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan NoTokenBackoff = TimeSpan.FromSeconds(2);
