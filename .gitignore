@@ -12,6 +12,8 @@ yarn.lock
 # Backend
 **/bin
 **/obj
+**/BundleArtifacts
+**/AppPackages
 *.user
 *.suo
 *.sln.docstates
@@ -88,3 +90,5 @@ desktop/Scalerize.InfiniteGpu.Desktop/.vs/
 docs/
 backend/InfiniteGPU.Backend/Properties/PublishProfiles
 backend/InfiniteGPU.Backend/Properties/ServiceDependencies
+desktop/Scalerize.InfiniteGpu.Desktop/Scalerize.InfiniteGpu.Desktop (Package)/Scalerize.InfiniteGpu.Desktop (Package)_TemporaryKey.pfx
+desktop/Scalerize.InfiniteGpu.Desktop/Scalerize.InfiniteGpu.Desktop (Package)/Scalerize.InfiniteGpu.Desktop.Package.assets.cache
