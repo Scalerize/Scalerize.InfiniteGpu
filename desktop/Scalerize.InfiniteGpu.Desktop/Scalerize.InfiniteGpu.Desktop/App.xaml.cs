@@ -18,7 +18,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 #if DEBUG
         public static readonly Uri BackendBaseUri = new("http://localhost:5116/");
 #else
-        public static readonly Uri BackendBaseUri = new("https://backend.infinite-gpu.scalerize.fr/")
+        public static readonly Uri BackendBaseUri = new("https://backend.infinite-gpu.scalerize.fr/");
 #endif
         private static Mutex? _singleInstanceMutex;
         private const string AppMutexName = "Scalerize.InfiniteGpu.Desktop.SingleInstance";

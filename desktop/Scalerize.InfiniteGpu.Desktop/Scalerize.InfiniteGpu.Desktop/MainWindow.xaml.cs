@@ -25,7 +25,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 #if DEBUG
         private static readonly Uri FrontendUri = new("http://localhost:5173");
 #else
-        private static readonly Uri FrontendUri = new("https://backend.infinite-gpu.scalerize.fr")
+        private static readonly Uri FrontendUri = new("https://backend.infinite-gpu.scalerize.fr");
 #endif
 
         private static readonly Uri FrontendUri = new("http://localhost:5173");

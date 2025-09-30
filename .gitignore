@@ -84,5 +84,7 @@ Thumbs.db
 *~
 .env
 **/.vs/*
-desktop/Scalerize.InfiniteGpu.Desktop/.vs/Scalerize.InfiniteGpu.Desktop.slnx/v18/DocumentLayout.backup.json
+desktop/Scalerize.InfiniteGpu.Desktop/.vs/
 docs/
+backend/InfiniteGPU.Backend/Properties/PublishProfiles
+backend/InfiniteGPU.Backend/Properties/ServiceDependencies
