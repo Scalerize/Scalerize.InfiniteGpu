@@ -2,7 +2,7 @@
 
 **Democratizing AI Compute Power Through Decentralized Resource Sharing**
 
-InfiniteGPU is a production-ready platform that enables effortless exchange of compute resources for AI workloads. Requestors can offload intensive AI inference tasks to a distributed network of providers, while providers monetize their idle GPU/CPU capacity — all orchestrated through an elegant web interface and native desktop application.
+InfiniteGPU is a production-ready platform that enables effortless exchange of compute resources for AI workloads. Requestors can offload intensive AI inference tasks to a distributed network of providers, while providers monetize their idle NPU/GPU/CPU capacity, orchestrated through a web interface and native desktop application.
 
 ## 🎯 Project Goal
 
@@ -281,15 +281,6 @@ dotnet publish -c Release -r win-x64
 # Create package
 msbuild /t:Publish /p:Configuration=Release
 ```
-
-## 📖 Documentation
-
-Detailed architecture and design documentation available in [`docs/`](./docs/):
-- [`architecture.md`](./docs/architecture.md) - System architecture overview
-- [`auth-password-reset-design.md`](./docs/auth-password-reset-design.md) - Authentication flow
-- [`compute-executor-alignment.md`](./docs/compute-executor-alignment.md) - Desktop executor design
-- [`stripe.md`](./docs/stripe.md) - Payment integration details
-- [`subgraph-partition-orchestration.md`](./docs/subgraph-partition-orchestration.md) - Task distribution strategy
 
 ## 🤝 Contributing
 
