@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>InfiniteGPU | Cloud Computing Marketplace for AI Inference | GPU, NPU, CPU Provider Network</title>
+  <meta name="description"
+    content="Access unlimited computing power for AI inference. Pay-as-you-go pricing, support for tensors, images, videos, and text. Compatible with GPU, NPU, and CPU. Download our desktop app." />
+  <meta name="keywords"
+    content="cloud computing marketplace, GPU provider, computing provider, AI inference, distributed computing, NPU computing, CPU computing, tensor inference, image processing, video processing, pay-as-you-go compute, cloud marketplace, GPU rental, compute marketplace, AI cloud platform" />
+  <meta name="author" content="InfiniteGPU" />
+  <meta property="og:title" content="InfiniteGPU - Cloud Computing Marketplace for AI Inference" />
+  <meta property="og:description"
+    content="Access unlimited computing power for AI inference with flexible pricing and multiple format support." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="InfiniteGPU - Cloud Computing Marketplace for AI Inference" />
+  <meta name="twitter:description"
+    content="Access unlimited computing power for AI inference with flexible pricing and multiple format support." />
+  <link rel="icon" type="image/png"
+    href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAArklEQVR4Xu3aQQ6CQBBFwXH3I9mk1lJYibFXYB6UpZkY1qvvcZktyNN4mnN8PCQgAAAK5p4ao6rdmAVw4A2X0ugOq2Zd9K6fyKexp0TgmZoCFP9t4gMhhFXF3CAFIUtCCHGAFEUhC0IIcYAUhS0IIcYAURSELQghxkGSp6Czps+ARAn3bbrwRogbd77AIm39uYFrf7fWxtm9DuI6FzkF8gNmWSf5D5AAACe4AVRqXNn32nrpgAAAABJRU5ErkJggg==" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              925: "#0B1220",
+            },
+            brand: {
+              50: "#EEF2FF",
+              100: "#E0E7FF",
+              200: "#C7D2FE",
+              500: "#5B7BFF",
+              600: "#4357F5",
+              700: "#2D3AD7",
+              900: "#141B3C",
+            },
+          },
+          boxShadow: {
+            card: "0 20px 45px -25px rgba(15, 23, 42, 0.35)",
+          },
+          fontFamily: {
+            sans: ["Inter", "system-ui", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 antialiased">
+  <div class="relative overflow-hidden">
+    <div class="pointer-events-none absolute inset-0 -z-10">
+      <div
+        class="absolute left-1/2 top-[-30%] h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent blur-[120px]">
+      </div>
+      <div
+        class="absolute left-1/4 bottom-[-20%] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-sky-500/10 via-cyan-500/10 to-transparent blur-[120px]">
+      </div>
+    </div>
+
+    <header class="px-6 py-6 sm:px-12 lg:px-20">
+      <nav class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-card">
+            <img src="logo-blue.png" alt="InfiniteGPU logo" class="h-8 w-8" />
+          </div>
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.3em] text-brand-200">
+              InfiniteGPU
+            </p>
+            <p class="text-sm text-slate-300">
+              Distributed Compute
+            </p>
+          </div>
+        </div>
+        <div class="hidden items-center gap-4 text-sm font-medium text-slate-200 md:flex lg:gap-6">
+          <a class="transition hover:text-white" href="#advantages">Advantages</a>
+          <a class="transition hover:text-white" href="#features">Features</a>
+          <a class="transition hover:text-white" href="#providers">Providers</a>
+          <a class="transition hover:text-white" href="#pricing">Pricing</a>
+        </div>
+        <div class="hidden gap-3 md:flex">
+          <a href="../frontend/index.html"
+            class="rounded-full border border-white/10 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-white/30 hover:text-white">
+            Console
+          </a>
+          <a href="#download"
+            class="rounded-full bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition hover:shadow-indigo-500/40">
+            Download App
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <section class="px-6 pb-24 sm:px-12 lg:px-20">
+      <div class="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+        <div class="flex flex-col justify-center gap-8">
+          <p
+            class="inline-flex w-fit items-center rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.4em] text-brand-100 shadow-card">
+            Cloud Computing Marketplace
+          </p>
+          <h1 class="text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-[3.4rem]">
+            Unlimited AI compute at your <span class="text-brand-200">fingertips</span>.
+          </h1>
+          <p class="max-w-xl text-lg text-slate-300">
+            Access a global network of computing providers with transparent pricing,
+            support for any input/output format, and unlimited scalability.
+            Run your AI inference workloads on GPU, NPU, or CPU—all through one platform.
+          </p>
+          <div class="flex flex-col gap-4 sm:flex-row">
+            <a href="#download"
+              class="rounded-full bg-white px-7 py-3 text-sm font-semibold text-slate-925 shadow-lg shadow-white/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-white/30">
+              Download Desktop App
+            </a>
+            <a href="#advantages"
+              class="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-slate-100 transition hover:border-white/40 hover:text-white">
+              See advantages
+            </a>
+          </div>
+
+          <dl class="grid gap-4 sm:grid-cols-3">
+            <div class="rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 to-white/5 p-6 shadow-card">
+              <dt class="text-xs font-semibold uppercase tracking-wide text-brand-100">
+                Flexible Pricing
+              </dt>
+              <dd class="mt-3 text-2xl font-semibold text-white">Pay-as-you-go</dd>
+              <p class="mt-1 text-xs text-slate-300">Only pay for what you use</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 to-white/5 p-6 shadow-card">
+              <dt class="text-xs font-semibold uppercase tracking-wide text-brand-100">
+                Universal Formats
+              </dt>
+              <dd class="mt-3 text-2xl font-semibold text-white">All Types</dd>
+              <p class="mt-1 text-xs text-slate-300">Tensors, images, videos, text</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 to-white/5 p-6 shadow-card">
+              <dt class="text-xs font-semibold uppercase tracking-wide text-brand-100">
+                Unlimited Compute
+              </dt>
+              <dd class="mt-3 text-2xl font-semibold text-white">GPU / NPU</dd>
+              <p class="mt-1 text-xs text-slate-300">Compatible with all accelerators</p>
+            </div>
+          </dl>
+        </div>
+
+        <div class="flex items-center justify-center">
+          <div
+            class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-indigo-600/30 backdrop-blur-xl lg:p-10">
+            <div class="space-y-6">
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-semibold text-brand-100 uppercase tracking-[0.35em]">Network diagnostics</p>
+                <span class="text-xs text-slate-400">Live mesh</span>
+              </div>
+              <div
+                class="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-900 to-indigo-600 p-8 text-indigo-50 shadow-card">
+                <p class="text-xs uppercase tracking-[0.35em] text-indigo-200">
+                  Mesh availability
+                </p>
+                <p class="mt-5 text-3xl font-semibold text-white">99.982%</p>
+                <p class="mt-2 text-sm text-indigo-100">
+                  Multi-region switchover with automated replica healing.
+                </p>
+                <div class="mt-6 flex gap-3">
+                  <span
+                    class="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-indigo-100">
+                    Replicas 24
+                  </span>
+                  <span
+                    class="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-indigo-100">
+                    Latency 34ms
+                  </span>
+                </div>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+
+
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <p class="text-xs uppercase tracking-[0.35em] text-slate-400">
+                  Top workloads
+                </p>
+                <div class="mt-4 space-y-3 text-sm">
+                  <div class="flex items-center justify-between text-slate-200">
+                    <span>Diffusion inference</span>
+                    <span class="rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+                      12/h
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <main class="space-y-36">
+    <section id="advantages" class="px-6 sm:px-12 lg:px-20">
+      <div class="mx-auto max-w-6xl text-center">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-brand-100">
+          Why Choose InfiniteGPU
+        </p>
+        <h2 class="mt-4 text-3xl font-semibold text-white">
+          Built for requestors who demand flexibility and performance.
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-base text-slate-300">
+          Access unlimited computing power with transparent pricing, universal format support, and unmatched hardware
+          compatibility.
+        </p>
+      </div>
+      <div class="mx-auto mt-12 grid max-w-6xl gap-6 sm:grid-cols-1 lg:grid-cols-2">
+        <article
+          class="rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-900/40 via-slate-900 to-slate-950 p-6 sm:p-8 shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-emerald-200">
+            💰 Transparent Pricing
+          </p>
+          <h3 class="mt-4 text-2xl font-semibold text-white">
+            Pay only for what you use
+          </h3>
+          <p class="mt-4 text-sm text-emerald-100">
+            No hidden fees, no minimum commitments. Our pay-as-you-go model ensures you only pay for actual compute time
+            used.
+          </p>
+          <ul class="mt-6 space-y-3 text-sm text-emerald-100">
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
+              Transparent per-task pricing
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
+              Volume discounts available
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
+              Real-time cost tracking
+            </li>
+          </ul>
+        </article>
+        <article
+          class="rounded-3xl border border-white/10 bg-gradient-to-br from-purple-900/40 via-slate-900 to-slate-950 p-6 sm:p-8 shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-purple-200">
+            📊 Universal Format Support
+          </p>
+          <h3 class="mt-4 text-2xl font-semibold text-white">
+            Any input, any output
+          </h3>
+          <p class="mt-4 text-sm text-purple-100">
+            Work with tensors, images, videos, or text—our platform handles all inference data types seamlessly.
+          </p>
+          <ul class="mt-6 space-y-3 text-sm text-purple-100">
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-purple-300"></span>
+              Tensor inputs for ML models
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-purple-300"></span>
+              Image & video processing
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-purple-300"></span>
+              Text-based inference
+            </li>
+          </ul>
+        </article>
+        <article
+          class="rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-900/40 via-slate-900 to-slate-950 p-6 sm:p-8 shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-cyan-200">
+            ⚡ Ultimate Performance
+          </p>
+          <h3 class="mt-4 text-2xl font-semibold text-white">
+            Hardware-optimized execution
+          </h3>
+          <p class="mt-4 text-sm text-cyan-100">
+            Already compatible with GPU, NPU, and CPU accelerators—automatically routed to the best hardware for your
+            workload.
+          </p>
+          <ul class="mt-6 space-y-3 text-sm text-cyan-100">
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-cyan-300"></span>
+              GPU acceleration for parallel workloads
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-cyan-300"></span>
+              NPU optimization for AI inference
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-cyan-300"></span>
+              CPU fallback for flexibility
+            </li>
+          </ul>
+        </article>
+        <article
+          class="rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-900/40 via-slate-900 to-slate-950 p-6 sm:p-8 shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-indigo-200">
+            ∞ Unlimited Compute
+          </p>
+          <h3 class="mt-4 text-2xl font-semibold text-white">
+            Scale without boundaries
+          </h3>
+          <p class="mt-4 text-sm text-indigo-100">
+            Access to thousands of compute providers means you never hit capacity limits—scale from prototype to
+            production instantly.
+          </p>
+          <ul class="mt-6 space-y-3 text-sm text-indigo-100">
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-indigo-300"></span>
+              Global provider network
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-indigo-300"></span>
+              Automatic workload distribution
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="h-2 w-2 rounded-full bg-indigo-300"></span>
+              No infrastructure management
+            </li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="features" class="px-6 sm:px-12 lg:px-20">
+      <div class="mx-auto max-w-6xl text-center">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-brand-100">
+          What sets InfiniteGPU apart
+        </p>
+        <h2 class="mt-4 text-3xl font-semibold text-white">
+          Instrumented compute for the distributed future.
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-base text-slate-300">
+          Every surface of the platform is designed for observability, operator control, and elevated developer
+          experience.
+        </p>
+      </div>
+      <div class="mx-auto mt-12 grid max-w-6xl gap-6 lg:grid-cols-3">
+        <article class="rounded-3xl border border-white/10 bg-white/5 p-8 text-left shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-400">
+            Inference Workloads
+          </p>
+          <h3 class="mt-4 text-xl font-semibold text-white">
+            Optimized for AI inference
+          </h3>
+          <p class="mt-3 text-sm text-slate-300">
+            Run your AI models efficiently with dedicated inference infrastructure optimized for low latency and high
+            throughput.
+          </p>
+        </article>
+        <article class="rounded-3xl border border-white/10 bg-white/5 p-8 text-left shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-400">
+            Observability
+          </p>
+          <h3 class="mt-4 text-xl font-semibold text-white">
+            Deep workload telemetry
+          </h3>
+          <p class="mt-3 text-sm text-slate-300">
+            Per-task timelines, partition artifacts, and node health surfaces integrate directly with your DevOps
+            practices.
+          </p>
+        </article>
+        <article class="rounded-3xl border border-white/10 bg-white/5 p-8 text-left shadow-card">
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-400">
+            Compliance
+          </p>
+          <h3 class="mt-4 text-xl font-semibold text-white">
+            Detailed audit logs
+          </h3>
+          <p class="mt-3 text-sm text-slate-300">
+            Comprehensive audit logs help you meet compliance requirements and maintain full visibility into your
+            compute operations.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="providers" class="px-6 sm:px-12 lg:px-20">
+      <div class="mx-auto max-w-6xl text-center">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-brand-100">
+          For Compute Providers
+        </p>
+        <h2 class="mt-4 text-3xl font-semibold text-white">
+          Monetize your hardware effortlessly.
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-base text-slate-300">
+          Join our global computing marketplace and earn by sharing your GPU, NPU, or CPU resources.
+        </p>
+      </div>
+      <div
+        class="mx-auto mt-12 max-w-4xl rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-900/60 via-slate-900 to-slate-950 p-6 sm:p-10 shadow-card">
+        <div class="grid gap-6 sm:gap-8 md:grid-cols-2">
+          <div>
+            <h3 class="text-xl font-semibold text-white">
+              Provider Benefits
+            </h3>
+            <ul class="mt-6 space-y-4 text-sm text-indigo-100">
+              <li class="flex items-start gap-3">
+                <span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-300"></span>
+                <span><strong class="text-white">Automated settlements:</strong> Receive payments hourly with
+                  transparent dispute resolution</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-300"></span>
+                <span><strong class="text-white">Workload matching:</strong> Get tasks optimized for your hardware
+                  capabilities</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-300"></span>
+                <span><strong class="text-white">Fleet management:</strong> Monitor performance with real-time telemetry
+                  dashboards</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-xl font-semibold text-white">
+              Getting Started
+            </h3>
+            <ul class="mt-6 space-y-4 text-sm text-indigo-100">
+              <li class="flex items-start gap-3">
+                <span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-cyan-300"></span>
+                <span><strong class="text-white">Download the app:</strong> Install our lightweight desktop
+                  client</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-cyan-300"></span>
+                <span><strong class="text-white">Configure resources:</strong> Set availability and hardware
+                  preferences</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-cyan-300"></span>
+                <span><strong class="text-white">Start earning:</strong> Accept tasks and get paid automatically</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-8 flex justify-center">
+          <a href="#download"
+            class="rounded-full bg-white px-8 py-3 text-sm font-semibold text-slate-925 shadow-lg shadow-white/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-white/30">
+            Become a Provider
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="download" class="px-6 sm:px-12 lg:px-20">
+      <div
+        class="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-brand-900 to-indigo-900 p-6 sm:p-10 text-center shadow-2xl shadow-brand-600/20">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-brand-200">
+          Get Started Now
+        </p>
+        <h2 class="mt-4 text-3xl font-semibold text-white sm:text-4xl">
+          Download InfiniteGPU Desktop App
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-base text-indigo-100">
+          Access unlimited computing power right from your desktop. Available for Windows.
+        </p>
+        <div class="mt-10 flex justify-center">
+          <a href="#"
+            class="flex items-center gap-3 rounded-full bg-white px-8 py-4 text-sm font-semibold text-slate-925 shadow-xl shadow-white/30 transition hover:-translate-y-1 hover:shadow-2xl hover:shadow-white/40">
+            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            </svg>
+            Download for Windows
+          </a>
+        </div>
+        <div class="mt-8 flex justify-center text-xs text-indigo-200">
+          <span class="flex items-center gap-2">
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+            </svg>
+            Windows 10/11
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing" class="px-6 sm:px-12 lg:px-20">
+      <div class="mx-auto max-w-6xl rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10 text-center shadow-card">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-brand-100">
+          Transparent Pricing
+        </p>
+        <h2 class="mt-4 text-3xl font-semibold text-white">
+          Simple, predictable pricing that scales with you.
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-base text-slate-300">
+          Pay only for actual compute time. No hidden fees, no minimum commitments, no surprises.
+        </p>
+        <div class="mt-12 grid gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 max-w-4xl mx-auto">
+          <div class="rounded-3xl border border-white/10 bg-slate-950/40 p-6 sm:p-8">
+            <p class="text-sm font-semibold uppercase tracking-[0.35em] text-slate-400">
+              Starter
+            </p>
+            <p class="mt-4 text-4xl font-semibold text-white">
+              Free<span class="text-lg text-slate-400"> / 14 days</span>
+            </p>
+            <p class="mt-4 text-sm text-slate-300">
+              Try the platform with $10 in free credits. Perfect for testing and prototyping.
+            </p>
+            <ul class="mt-6 space-y-2 text-left text-xs text-slate-400">
+              <li class="flex items-center gap-2">
+                <svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clip-rule="evenodd" />
+                </svg>
+                All input/output formats
+              </li>
+              <li class="flex items-center gap-2">
+                <svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clip-rule="evenodd" />
+                </svg>
+                Community support
+              </li>
+            </ul>
+          </div>
+          <div
+            class="rounded-3xl border border-brand-500/40 bg-gradient-to-br from-brand-600 via-indigo-600 to-purple-600 p-[2px] shadow-card">
+            <div class="h-full w-full rounded-[calc(1.5rem-2px)] bg-slate-950/80 px-8 py-10">
+              <p class="text-sm font-semibold uppercase tracking-[0.35em] text-brand-100">
+                Pay-As-You-Go
+              </p>
+              <p class="mt-4 text-4xl font-semibold text-white">
+                Usage-based
+                <span class="block text-sm font-normal text-indigo-200">
+                  Starting at $0.10 per compute hour
+                </span>
+              </p>
+              <p class="mt-6 text-sm text-indigo-100">
+                Only pay for what you use. Automatic cost optimization and volume discounts included.
+              </p>
+              <ul class="mt-6 space-y-2 text-left text-xs text-indigo-200">
+                <li class="flex items-center gap-2">
+                  <svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  GPU/NPU/CPU access
+                </li>
+                <li class="flex items-center gap-2">
+                  <svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  Real-time cost tracking
+                </li>
+                <li class="flex items-center gap-2">
+                  <svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  Priority support
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="px-6 sm:px-12 lg:px-20">
+      <div
+        class="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-900 to-indigo-700 p-6 sm:p-10 text-center shadow-card">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-200">
+          Ready to Scale Your AI?
+        </p>
+        <h2 class="mt-4 text-3xl font-semibold text-white">
+          Get started with InfiniteGPU today.
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-base text-indigo-100">
+          Join thousands of developers leveraging unlimited compute for their AI inference workloads.
+        </p>
+        <div class="mx-auto mt-8 flex justify-center">
+          <a href="#download"
+            class="h-12 flex items-center justify-center rounded-full bg-white px-8 text-sm font-semibold text-slate-925 shadow-lg shadow-white/40 transition hover:-translate-y-0.5 hover:shadow-xl">
+            Download Now
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="px-6 pb-12 pt-24 sm:px-12 lg:px-20">
+    <div
+      class="mx-auto flex max-w-6xl flex-col gap-8 border-t border-white/10 pt-10 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+      <p>&copy; <span id="year"></span> InfiniteGPU. All rights reserved.</p>
+      <div class="flex gap-6">
+        <a class="transition hover:text-white" href="#features">Platform</a>
+        <a class="transition hover:text-white" href="#pricing">Pricing</a>
+        <a class="transition hover:text-white" href="#contact">Contact</a>
+        <a class="transition hover:text-white" href="../README.md">Docs</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Scalerize.InfiniteGpu.Desktop.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Scalerize.InfiniteGpu.Desktop"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tb="using:H.NotifyIcon" 
+    mc:Ignorable="d"
+    Title="Scalerize.InfiniteGpu.Desktop">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="RootGrid">
+        <tb:TaskbarIcon
+                x:Name="AppTrayIcon"
+                ToolTipText="Scalerize Infinite GPU"
+                MenuActivation="LeftOrRightClick"
+                IconSource="/Assets/logo-blue.ico"
+                ContextFlyout="{StaticResource TrayMenu}"
+                ContextMenuMode="SecondWindow">
+        </tb:TaskbarIcon>
+
+        <controls:WebView2 x:Name="AppWebView" />
+
+        <Grid x:Name="LoadingOverlay"
+              Visibility="Collapsed">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#0f172a" Offset="0.0" />
+                    <GradientStop Color="#312e81" Offset="0.5" />
+                    <GradientStop Color="#4338ca" Offset="1.0" />
+                </LinearGradientBrush>
+            </Grid.Background>
+            
+            <!-- Radial overlay effect -->
+            <Grid>
+                <Grid.Background>
+                    <RadialGradientBrush Center="0.5,0.2" RadiusX="0.8" RadiusY="0.8">
+                        <GradientStop Color="#14FFFFFF" Offset="0.0" />
+                        <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                    </RadialGradientBrush>
+                </Grid.Background>
+            </Grid>
+            
+            <Border HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#E61E293B"
+                    BorderBrush="#CC334155"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="32"
+                    Width="420">
+                <Border.Shadow>
+                    <ThemeShadow />
+                </Border.Shadow>
+                <StackPanel Spacing="16"
+                            HorizontalAlignment="Center">
+                    <controls:ProgressRing Width="48"
+                                           Height="48"
+                                           IsActive="True"
+                                           Foreground="#818CF8" />
+                    <TextBlock x:Name="LoadingStatusText"
+                               Text="Loading..."
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Foreground="#F8FAFC"
+                               TextAlignment="Center" />
+                    <TextBlock x:Name="LoadingSubtitleText"
+                               Text="Please wait while we connect to the application."
+                               TextWrapping="WrapWholeWords"
+                               FontSize="13"
+                               Foreground="#CBD5E1"
+                               Opacity="0.9"
+                               Visibility="Visible"
+                               TextAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
