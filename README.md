@@ -15,7 +15,7 @@ Transform how compute power is accessed and shared by creating a frictionless ma
 ## ✨ Key Features
 
 - 🧠 **ONNX Model Execution** - Run AI inference tasks using industry-standard ONNX models
-- 𓇲  **Neural processing units** - Ability to target NPUs can accelerate AI inference
+- 𓇲 **Neural processing units** - Ability to target NPUs can accelerate AI inference
 - 📁 **Multiple input/outputs formats** - Input can be plain text, images, videos, numpy tensors
 - 💰 **Automated Payments** - Stripe integration with platform commission, centralized
 - ⚡ **Real-time Updates** - SignalR-powered live task status and progress tracking
