@@ -57,6 +57,7 @@ type InferenceBinding = {
   textPayload: string;
   fileName: string | null;
   file: File | null;
+  maxLength: number;
 };
 
 type OutputBinding = {
@@ -104,6 +105,7 @@ const createInferenceBinding = (): InferenceBinding => ({
   textPayload: "",
   fileName: null,
   file: null,
+  maxLength: 512,
 });
 
 const createOutputBinding = (): OutputBinding => ({
@@ -384,6 +386,8 @@ export const NewTaskRequestDialog = ({
               payloadType,
               payload,
               fileUrl: null,
+              maxLength: binding.payloadType === "text" ? binding.maxLength : undefined,
+              padding: binding.payloadType === "text" ? true : undefined,
             });
           }
         }
@@ -629,36 +633,63 @@ export const NewTaskRequestDialog = ({
                       </div>
 
                       {binding.payloadType !== "binary" ? (
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {binding.payloadType === "json"
-                              ? "JSON payload"
-                              : "Text payload"}
-                          </label>
-                          <textarea
-                            name={`inferenceBindings[${index}].payload`}
-                            value={binding.textPayload}
-                            onChange={(event) =>
-                              handleInferenceBindingChange(
-                                binding.id,
-                                "textPayload",
-                                event.target.value
-                              )
-                            }
-                            placeholder={
-                              binding.payloadType === "json"
-                                ? "[[1, 2, 3], [4, 5, 6]]"
-                                : "Provide plain text inputs or tokenized sequences"
-                            }
-                            className="h-32 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
-                            required
-                          />
-                          <p className="text-xs text-slate-400 dark:text-slate-500">
-                            {binding.payloadType === "json"
-                              ? "Ensure shape matches the model input signature. Arrays are validated server-side."
-                              : "Useful for prompt-only workloads or token sequences."}
-                          </p>
-                        </div>
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              {binding.payloadType === "json"
+                                ? "JSON payload"
+                                : "Text payload"}
+                            </label>
+                            <textarea
+                              name={`inferenceBindings[${index}].payload`}
+                              value={binding.textPayload}
+                              onChange={(event) =>
+                                handleInferenceBindingChange(
+                                  binding.id,
+                                  "textPayload",
+                                  event.target.value
+                                )
+                              }
+                              placeholder={
+                                binding.payloadType === "json"
+                                  ? "[[1, 2, 3], [4, 5, 6]]"
+                                  : "Provide plain text inputs"
+                              }
+                              className="h-32 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
+                              required
+                            />
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                              {binding.payloadType === "json"
+                                ? "Ensure shape matches the model input signature. Arrays are validated server-side."
+                                : "Text will be automatically tokenized before inference. Configure max length below."}
+                            </p>
+                          </div>
+
+                          {binding.payloadType === "text" && (
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Max sequence length
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={8192}
+                                value={binding.maxLength}
+                                onChange={(event) =>
+                                  handleInferenceBindingChange(
+                                    binding.id,
+                                    "maxLength",
+                                    Number.parseInt(event.target.value, 10) || 512
+                                  )
+                                }
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
+                              />
+                              <p className="text-xs text-slate-400 dark:text-slate-500">
+                                Maximum tokens after tokenization. Text will be truncated if longer. Padding is enabled by default.
+                              </p>
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="space-y-1">
                           <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
