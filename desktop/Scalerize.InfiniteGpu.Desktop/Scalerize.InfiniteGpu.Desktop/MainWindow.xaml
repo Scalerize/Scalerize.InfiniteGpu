@@ -18,7 +18,7 @@
     <Grid x:Name="RootGrid">
         <tb:TaskbarIcon
                 x:Name="AppTrayIcon"
-                ToolTipText="Scalerize Infinite GPU"
+                ToolTipText="InfiniteGPU"
                 MenuActivation="LeftOrRightClick"
                 IconSource="/Assets/logo-blue.ico"
                 ContextFlyout="{StaticResource TrayMenu}"

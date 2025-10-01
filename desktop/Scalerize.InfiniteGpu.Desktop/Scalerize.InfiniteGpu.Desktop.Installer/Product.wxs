@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  
+  <?define ProductName = "InfiniteGpu" ?>
+  <?define ProductVersion = "1.0.11.0" ?>
+  <?define Manufacturer = "Scalerize" ?>
+  <?define UpgradeCode = "12345678-1234-1234-1234-123456789012" ?>
+  
+  <Product Id="*" 
+           Name="$(var.ProductName)" 
+           Language="1033" 
+           Version="$(var.ProductVersion)" 
+           Manufacturer="$(var.Manufacturer)" 
+           UpgradeCode="$(var.UpgradeCode)">
+    
+    <Package InstallerVersion="500" 
+             Compressed="yes" 
+             InstallScope="perMachine"
+             Platform="x64"
+             Description="$(var.ProductName) Installer"
+             Comments="Distributed GPU computing desktop application" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Icon for Add/Remove Programs -->
+    <Icon Id="ProductIcon" SourceFile="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)Assets\logo-blue.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    
+    <!-- Installation directory -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="ManufacturerFolder" Name="$(var.Manufacturer)">
+          <Directory Id="INSTALLFOLDER" Name="$(var.ProductName)">
+            
+            <!-- Main application files -->
+            <Component Id="MainExecutable" Guid="12345678-1234-1234-1234-123456789013" Win64="yes">
+              <File Id="MainExe" 
+                    Source="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)Scalerize.InfiniteGpu.Desktop.exe" 
+                    KeyPath="yes"
+                    Checksum="yes" />
+              
+              <!-- Desktop shortcut -->
+              <Shortcut Id="DesktopShortcut"
+                        Directory="DesktopFolder"
+                        Name="$(var.ProductName)"
+                        Description="InfiniteGpu"
+                        WorkingDirectory="INSTALLFOLDER"
+                        Icon="ProductIcon"
+                        IconIndex="0"
+                        Advertise="yes" />
+              
+              <!-- Start Menu shortcut -->
+              <Shortcut Id="StartMenuShortcut"
+                        Directory="ProgramMenuFolder"
+                        Name="$(var.ProductName)"
+                        Description="InfiniteGpu"
+                        WorkingDirectory="INSTALLFOLDER"
+                        Icon="ProductIcon"
+                        IconIndex="0"
+                        Advertise="yes" />
+            </Component>
+
+            <!-- Assets folder -->
+            <Directory Id="AssetsFolder" Name="Assets">
+              <Component Id="AssetsComponent" Guid="12345678-1234-1234-1234-123456789014" Win64="yes">
+                <File Id="ErrorPageHtml" Source="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)Assets\ErrorPage.html" />
+                <File Id="LogoBlueIco" Source="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)Assets\logo-blue.ico" />
+              </Component>
+            </Directory>
+
+          </Directory>
+        </Directory>
+      </Directory>
+
+      <!-- Desktop and Start Menu folders -->
+      <Directory Id="DesktopFolder" Name="Desktop" />
+      <Directory Id="ProgramMenuFolder" Name="Programs" />
+    </Directory>
+
+    <!-- Feature to install -->
+    <Feature Id="ProductFeature" 
+             Title="InfiniteGpu" 
+             Level="1"
+             Description="Main application files"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="AssetsComponent" />
+      <ComponentGroupRef Id="PublishedFiles" />
+    </Feature>
+
+    <!-- UI Configuration -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WixUI_InstallDir" Value="INSTALLFOLDER" />
+    
+    <!-- License Agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    
+  </Product>
+
+  <!-- Fragment to automatically harvest all published files -->
+  <Fragment>
+    <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
+      <!-- This will be populated by heat.exe during build -->
+    </ComponentGroup>
+  </Fragment>
+  
+</Wix>

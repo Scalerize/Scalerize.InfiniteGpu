@@ -3,7 +3,6 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Storage;
 
 namespace Scalerize.InfiniteGpu.Desktop.Services
 {
@@ -21,8 +20,10 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         public DeviceIdentifierService()
         {
-            var localFolderPath = ApplicationData.Current.LocalFolder.Path;
-            var root = Path.Combine(localFolderPath, "Device");
+            // Use standard .NET path for unpackaged Windows apps
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var appFolder = Path.Combine(localAppData, "Scalerize.InfiniteGpu.Desktop");
+            var root = Path.Combine(appFolder, "Device");
 
             Directory.CreateDirectory(root);
             _storagePath = Path.Combine(root, DeviceIdFileName);
