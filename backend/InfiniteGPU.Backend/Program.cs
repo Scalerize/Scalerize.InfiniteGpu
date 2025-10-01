@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using DotNetEnv;
 using FluentValidation;
 using InfiniteGPU.Backend.Data;
-using InfiniteGPU.Backend.Data.Entities; 
+using InfiniteGPU.Backend.Data.Entities;
 using InfiniteGPU.Backend.Shared.Options;
 using InfiniteGPU.Backend.Shared.Services;
 using InfiniteGPU.Backend.Features.Auth.Endpoints;
@@ -26,11 +26,17 @@ Env.TraversePath().Load();
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection("Frontend"));
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        var frontendOptions = builder.Configuration
+            .GetRequiredSection("Frontend")
+            .Get<FrontendOptions>();
+
+        policy.WithOrigins(frontendOptions!.AllowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -136,7 +142,7 @@ builder.Services.AddAuthorization();
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
- // FluentValidation
+// FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // SignalR
@@ -148,7 +154,6 @@ builder.Services.AddOptions<AzureStorageOptions>()
     .Validate(options => !string.IsNullOrWhiteSpace(options.ConnectionString), "Azure storage connection string must be provided.");
 
 builder.Services.Configure<MailgunOptions>(builder.Configuration.GetSection("Mailgun"));
-builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection("Frontend"));
 
 // Application services
 builder.Services.AddSingleton(sp =>
