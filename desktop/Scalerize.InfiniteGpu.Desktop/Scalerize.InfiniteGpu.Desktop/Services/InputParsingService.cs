@@ -42,10 +42,12 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         };
 
         private readonly HttpClient _httpClient;
+        private readonly TokenizerService _tokenizer;
 
-        public InputParsingService(HttpClient httpClient)
+        public InputParsingService(HttpClient httpClient, TokenizerService tokenizerService)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _tokenizer = tokenizerService ?? throw new ArgumentNullException(nameof(tokenizerService));
         }
 
         public async Task<List<NamedOnnxValue>> BuildNamedInputsAsync(string? parametersJson, CancellationToken cancellationToken)
@@ -119,9 +121,39 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                                         textPayloadNode.ValueKind == JsonValueKind.String)
                                     {
                                         var text = textPayloadNode.GetString() ?? string.Empty;
-                                        var data = new[] { text };
-                                        var tensor = new DenseTensor<string>(data, new[] { data.Length });
+                                        
+                                        // Extract tokenization parameters from binding
+                                        var maxLength = 512;
+                                        var addSpecialTokens = true;
+                                        var padding = false;
+                                        
+                                        if (bindingNode.TryGetProperty("maxLength", out var maxLengthNode) &&
+                                            maxLengthNode.ValueKind == JsonValueKind.Number)
+                                        {
+                                            maxLength = maxLengthNode.GetInt32();
+                                        }
+                                        
+                                        if (bindingNode.TryGetProperty("addSpecialTokens", out var specialTokensNode) &&
+                                            specialTokensNode.ValueKind == JsonValueKind.True || specialTokensNode.ValueKind == JsonValueKind.False)
+                                        {
+                                            addSpecialTokens = specialTokensNode.GetBoolean();
+                                        }
+                                        
+                                        if (bindingNode.TryGetProperty("padding", out var paddingNode) &&
+                                            paddingNode.ValueKind == JsonValueKind.True || paddingNode.ValueKind == JsonValueKind.False)
+                                        {
+                                            padding = paddingNode.GetBoolean();
+                                        }
+                                        
+                                        // Tokenize the text into token IDs
+                                        var tokenIds = _tokenizer.Encode(text, maxLength, addSpecialTokens, padding);
+                                        
+                                        // Create tensor with shape [1, sequence_length] for batch size of 1
+                                        var shape = new[] { 1, tokenIds.Length };
+                                        var tensor = new DenseTensor<long>(tokenIds, shape);
                                         inputs.Add(NamedOnnxValue.CreateFromTensor(tensorName, tensor));
+                                        
+                                        Debug.WriteLine($"[InputParsingService] Tokenized text input '{tensorName}': {tokenIds.Length} tokens");
                                     }
                                     break;
                                 case "binary":

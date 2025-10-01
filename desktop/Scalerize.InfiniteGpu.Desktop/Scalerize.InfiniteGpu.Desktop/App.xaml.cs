@@ -89,6 +89,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             services.AddSingleton<InputParsingService>();
             services.AddSingleton<OutputParsingService>();
             services.AddSingleton<BackgroundWorkService>();
+            services.AddSingleton<TokenizerService>();
             services.AddSingleton<MainWindow>();
 
             return services.BuildServiceProvider();

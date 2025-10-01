@@ -41,6 +41,8 @@ export interface RequestorTaskInferenceBindingDto {
   payloadType: RequestorInferencePayloadType;
   payload?: string | null;
   fileUrl?: string | null;
+  maxLength?: number | null;
+  padding?: boolean | null;
 }
 
 export interface RequestorTaskInferenceDto {

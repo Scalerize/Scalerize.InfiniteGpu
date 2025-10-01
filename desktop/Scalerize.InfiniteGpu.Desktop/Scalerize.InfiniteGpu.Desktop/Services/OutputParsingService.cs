@@ -32,10 +32,12 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         };
 
         private readonly HttpClient _httpClient;
+        private readonly TokenizerService _tokenizer;
 
-        public OutputParsingService(HttpClient httpClient)
+        public OutputParsingService(HttpClient httpClient, TokenizerService tokenizerService)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _tokenizer = tokenizerService ?? throw new ArgumentNullException(nameof(tokenizerService));
         }
 
         public async Task<List<object>> ProcessOutputsAsync(
@@ -147,11 +149,31 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 return string.Empty;
             }
 
-            if (output is string str)
+            try
             {
-                return str;
+                long[] tokenIds = output switch
+                {
+                    long[] longArray => longArray,
+                    int[] intArray => intArray.Select(i => (long)i).ToArray(),
+                    float[] floatArray => floatArray.Select(f => (long)Math.Round(f)).ToArray(),
+                    double[] doubleArray => doubleArray.Select(d => (long)Math.Round(d)).ToArray(),
+                    _ => null
+                };
+
+                if (tokenIds != null && tokenIds.Length > 0)
+                {
+                    // Detokenize the token IDs back to text
+                    var decodedText = _tokenizer.Decode(tokenIds, skipSpecialTokens: true);
+                    Debug.WriteLine($"[OutputParsingService] Detokenized {tokenIds.Length} tokens to text: {decodedText.Substring(0, Math.Min(50, decodedText.Length))}...");
+                    return decodedText;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OutputParsingService] Failed to detokenize output: {ex}");
             }
 
+            // Fallback to string representation
             return output.ToString() ?? string.Empty;
         }
 

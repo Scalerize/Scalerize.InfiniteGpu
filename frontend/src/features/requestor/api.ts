@@ -54,6 +54,8 @@ export interface CreateTaskRequestBody {
       payloadType: InferencePayloadType;
       payload: string | null;
       fileUrl: string | null;
+      maxLength?: number | null;
+      padding?: boolean | null;
     }>;
     outputs?: Array<{
       tensorName: string;
