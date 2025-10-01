@@ -60,7 +60,7 @@ public sealed class ProcessPaymentCommandHandler : IRequestHandler<ProcessPaymen
                     AllowRedirects = "always" // Allow redirects for 3D Secure authentication
                 },
                 // Set return URL for 3D Secure redirects
-                ReturnUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:5173/finance",
+                ReturnUrl = _configuration["Frontend:BaseUrl"] + "finances",
                 Metadata = new Dictionary<string, string>
                 {
                     { "user_id", request.UserId },

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {  ShieldCheck, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
 import scalerize from "../../../assets/logo-blue.png";
 
 interface AuthLayoutProps {
@@ -79,13 +78,6 @@ export const AuthLayout = ({
           </section>
 
           <footer className="text-sm text-indigo-200">
-            Need help onboarding?{" "}
-            <Link
-              to="/support"
-              className="font-semibold text-white hover:text-indigo-100"
-            >
-              Talk to our solutions team
-            </Link>
           </footer>
         </div>
       </aside>

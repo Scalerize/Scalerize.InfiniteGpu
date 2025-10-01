@@ -11,7 +11,7 @@ interface ApiRequestOptions<TBody> {
 }
 
 const resolveBaseUrl = () => {
-  const configured = 'http://localhost:5116/';
+  const configured = import.meta.env.VITE_BACKEND_URL;
   if (configured && configured.length > 0) {
     return configured.replace(/\/+$/, '');
   }
