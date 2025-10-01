@@ -297,6 +297,3 @@ This project is proprietary software. All rights reserved.
 
 Built with modern best practices and industry-leading technologies to deliver a robust, scalable compute-sharing platform.
 
----
-
-**Made with ❤️ for democratizing AI compute access**
