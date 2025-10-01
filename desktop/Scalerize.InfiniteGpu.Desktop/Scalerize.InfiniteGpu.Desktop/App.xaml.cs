@@ -1,9 +1,11 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Scalerize.InfiniteGpu.Desktop.Constants;
 using Scalerize.InfiniteGpu.Desktop.Services;
 
 namespace Scalerize.InfiniteGpu.Desktop
@@ -13,13 +15,25 @@ namespace Scalerize.InfiniteGpu.Desktop
     /// </summary>
     public partial class App : Application
     {
+        // P/Invoke declarations for window activation
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        private const int SW_RESTORE = 9;
+        private const int SW_SHOW = 5;
+        private const string AppWindowTitle = "InfiniteGpu";
+
         private Window? _window;
         private IServiceProvider? _serviceProvider;
-#if DEBUG
-        public static readonly Uri BackendBaseUri = new("http://localhost:5116/");
-#else
-        public static readonly Uri BackendBaseUri = new("https://backend.infinite-gpu.scalerize.fr/");
-#endif
         private static Mutex? _singleInstanceMutex;
         private const string AppMutexName = "Scalerize.InfiniteGpu.Desktop.SingleInstance";
 
@@ -39,9 +53,10 @@ namespace Scalerize.InfiniteGpu.Desktop
 
             if (!createdNew)
             {
-                // Another instance is already running - exit immediately
+                // Another instance is already running - activate existing window
                 _singleInstanceMutex.Dispose();
                 _singleInstanceMutex = null;
+                ActivateExistingWindow();
                 Environment.Exit(0);
             }
         }
@@ -56,6 +71,42 @@ namespace Scalerize.InfiniteGpu.Desktop
             _window = _serviceProvider.GetRequiredService<MainWindow>();
             _window.Closed += OnWindowClosed;
             _window.Activate();
+        }
+
+        /// <summary>
+        /// Attempts to find and activate an existing application window.
+        /// </summary>
+        private static void ActivateExistingWindow()
+        {
+            try
+            {
+                // Try to find the window by title
+                IntPtr hWnd = FindWindow(null, AppWindowTitle);
+
+                if (hWnd == IntPtr.Zero)
+                {
+                    // Window not found, exit
+                    return;
+                }
+
+                // If the window is minimized, restore it
+                if (IsIconic(hWnd))
+                {
+                    ShowWindow(hWnd, SW_RESTORE);
+                }
+                else
+                {
+                    // Just show the window
+                    ShowWindow(hWnd, SW_SHOW);
+                }
+
+                // Bring the window to the foreground
+                SetForegroundWindow(hWnd);
+            }
+            catch
+            {
+                // Silently fail if we can't activate the window
+            }
         }
 
         private async void OnWindowClosed(object sender, WindowEventArgs args)
@@ -105,7 +156,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             return new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromMinutes(2),
-                BaseAddress = BackendBaseUri
+                BaseAddress = UrlConstants.BackendBaseUri
             };
         }
     }

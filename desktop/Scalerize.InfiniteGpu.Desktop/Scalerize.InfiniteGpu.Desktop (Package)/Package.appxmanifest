@@ -15,7 +15,7 @@
   <mp:PhoneIdentity PhoneProductId="ca6cd9da-91e3-4bf8-a674-12dfc764bc4e" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Scalerize.InfiniteGpu.Desktop (Package)</DisplayName>
+    <DisplayName>InfiniteGpu</DisplayName>
     <PublisherDisplayName>frank</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
@@ -34,8 +34,8 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="Scalerize.InfiniteGpu.Desktop (Package)"
-        Description="Scalerize.InfiniteGpu.Desktop (Package)"
+        DisplayName="InfiniteGpu"
+        Description="InfiniteGPU computing network platform"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">

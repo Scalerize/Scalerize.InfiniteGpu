@@ -7,12 +7,14 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.Web.WebView2.Core;
+using Scalerize.InfiniteGpu.Desktop.Constants;
 using Scalerize.InfiniteGpu.Desktop.Services;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Resources;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Windows.System;
@@ -22,11 +24,71 @@ namespace Scalerize.InfiniteGpu.Desktop
 {
     public sealed partial class MainWindow : Window
     {
-#if DEBUG
-        private static readonly Uri FrontendUri = new("http://localhost:5173");
-#else
-        private static readonly Uri FrontendUri = new("https://backend.infinite-gpu.scalerize.fr");
-#endif
+        // P/Invoke for setting minimum window size
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnableMenuItem(IntPtr hMenu, uint uIDEnableItem, uint uEnable);
+
+        private const uint MF_BYCOMMAND = 0x00000000;
+        private const uint MF_ENABLED = 0x00000000;
+        private const uint SC_MINIMIZE = 0xF020;
+
+        private const int WM_GETMINMAXINFO = 0x0024;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        private const int GWL_WNDPROC = -4;
+
+        private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        private static WndProcDelegate? _wndProcDelegate;
+        private static IntPtr _oldWndProc = IntPtr.Zero;
+        private static int _minWidth = 420;
+        private static int _minHeight = 300;
+
+        private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+        {
+            if (msg == WM_GETMINMAXINFO)
+            {
+                var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                info.ptMinTrackSize.x = _minWidth;
+                info.ptMinTrackSize.y = _minHeight;
+                Marshal.StructureToPtr(info, lParam, true);
+            }
+
+            return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
+        }
+
+        private static void SetWindowMinSize(IntPtr hwnd, int minWidth, int minHeight)
+        {
+            _minWidth = minWidth;
+            _minHeight = minHeight;
+            _wndProcDelegate = WndProc;
+            _oldWndProc = SetWindowLongPtr(hwnd, GWL_WNDPROC, Marshal.GetFunctionPointerForDelegate(_wndProcDelegate));
+        }
+
         private readonly bool _isDevelopment;
         private readonly OnnxRuntimeService _onnxRuntimeService;
         private readonly HardwareMetricsService _hardwareMetricsService;
@@ -183,13 +245,25 @@ namespace Scalerize.InfiniteGpu.Desktop
             titleBar.ExtendsContentIntoTitleBar = true;
             titleBar.ButtonBackgroundColor = Colors.Transparent;
             titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+
+            // Set minimum window size
+            if (appWindow.Presenter is OverlappedPresenter presenter)
+            {
+                presenter.IsMinimizable = true;
+                presenter.IsMaximizable = true;
+                presenter.IsResizable = true;
+                
+                var minSize = new Windows.Graphics.SizeInt32(420, 0);
+                presenter.SetBorderAndTitleBar(true, true);
+                SetWindowMinSize(hwnd, 420, 300);
+            }
         }
 
         private void NavigateToFrontend()
         {
-            if (AppWebView.Source != FrontendUri)
+            if (AppWebView.Source != UrlConstants.FrontendUri)
             {
-                AppWebView.Source = FrontendUri;
+                AppWebView.Source = UrlConstants.FrontendUri;
             }
         }
 

@@ -23,7 +23,7 @@ export const PageHeader = ({
   actionsClassName,
 }: PageHeaderProps) => {
   const headerClassName = mergeClasses(
-    "md:sticky md:top-0 md:z-10 md:bg-slate-100 md:pb-4 dark:md:bg-slate-950",
+    "md:sticky md:top-0 md:z-10 md:pb-4",
     className
   );
 

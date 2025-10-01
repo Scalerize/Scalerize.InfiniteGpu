@@ -116,7 +116,7 @@ public class TaskHub : Hub
                     providerUserId!,
                     deviceId.Value,
                     deviceStillConnected,
-                    Context.ConnectionAborted);
+                    CancellationToken.None);
 
                 // If device is fully disconnected (no more active connections), fail all active subtasks
                 if (!deviceStillConnected)
@@ -128,7 +128,7 @@ public class TaskHub : Hub
                     var failureResults = await _assignmentService.FailSubtasksForDisconnectedDeviceAsync(
                         deviceId.Value,
                         providerUserId!,
-                        Context.ConnectionAborted);
+                        CancellationToken.None);
 
                     // Broadcast failure events for each failed subtask
                     foreach (var failure in failureResults)
@@ -140,13 +140,13 @@ public class TaskHub : Hub
                             failure.WasReassigned,
                             failure.TaskFailed,
                             new { reason = "Device disconnected", deviceId = deviceId.Value },
-                            Context.ConnectionAborted);
+                            CancellationToken.None);
                     }
 
                     // If any subtasks were reassigned, try to dispatch them
                     if (failureResults.Any(f => f.WasReassigned))
                     {
-                        await DispatchPendingSubtaskAsync(Context.ConnectionAborted);
+                        await DispatchPendingSubtaskAsync(CancellationToken.None);
                     }
                 }
             }

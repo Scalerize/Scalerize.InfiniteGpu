@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML.OnnxRuntime;
+using Scalerize.InfiniteGpu.Desktop.Constants;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -589,7 +590,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 return true;
             }
 
-            if (Uri.TryCreate(DefaultBackendBaseUri, value, out var relative))
+            if (Uri.TryCreate(UrlConstants.BackendBaseUri, value, out var relative))
             {
                 uri = relative;
                 return true;
@@ -687,7 +688,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             var client = new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromMinutes(2),
-                BaseAddress = DefaultBackendBaseUri
+                BaseAddress = UrlConstants.BackendBaseUri
             };
 
             return client;

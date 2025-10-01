@@ -7,9 +7,9 @@
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:tb="using:H.NotifyIcon" 
+    xmlns:tb="using:H.NotifyIcon"
     mc:Ignorable="d"
-    Title="Scalerize.InfiniteGpu.Desktop">
+    Title="InfiniteGpu">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -25,7 +25,7 @@
                 ContextMenuMode="SecondWindow">
         </tb:TaskbarIcon>
 
-        <controls:WebView2 x:Name="AppWebView" />
+        <controls:WebView2 x:Name="AppWebView" DefaultBackgroundColor="Transparent"/>
 
         <Grid x:Name="LoadingOverlay"
               Visibility="Collapsed">
