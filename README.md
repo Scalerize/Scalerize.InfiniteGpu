@@ -151,7 +151,7 @@ start Scalerize.InfiniteGpu.Desktop.slnx
 # Press F5 to run
 ```
 
-**If dependencies are already installed**: ./dev.ps1 launch dotnet and npm.
+**If dependencies are already installed**: `./dev.ps1` launch dotnet and npm.
 
 ### 4. Environment Configuration
 
