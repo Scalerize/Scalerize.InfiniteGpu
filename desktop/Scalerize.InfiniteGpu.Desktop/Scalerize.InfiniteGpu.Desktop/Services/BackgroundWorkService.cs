@@ -478,7 +478,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private HubConnection BuildHubConnection(string token, string deviceIdentifier)
         {
-            var hubUri = new Uri(UrlConstants.BackendBaseUri, $"taskhub?deviceIdentifier={Uri.EscapeDataString(deviceIdentifier)}");
+            var hubUri = new Uri(Constants.Constants.BackendBaseUri, $"taskhub?deviceIdentifier={Uri.EscapeDataString(deviceIdentifier)}");
 
             return new HubConnectionBuilder()
                 .WithUrl(hubUri, options =>
@@ -585,7 +585,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 return true;
             }
 
-            if (Uri.TryCreate(UrlConstants.BackendBaseUri, value, out var relative))
+            if (Uri.TryCreate(Constants.Constants.BackendBaseUri, value, out var relative))
             {
                 uri = relative;
                 return true;
@@ -683,7 +683,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             var client = new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromMinutes(2),
-                BaseAddress = UrlConstants.BackendBaseUri
+                BaseAddress = Constants.Constants.BackendBaseUri
             };
 
             return client;

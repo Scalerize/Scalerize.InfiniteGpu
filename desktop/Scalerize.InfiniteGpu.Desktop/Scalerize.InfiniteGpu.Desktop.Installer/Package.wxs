@@ -72,6 +72,10 @@
     <!-- Placeholder for dynamically harvested files -->
     <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
       <!-- Files will be added here by the build process -->
+       <Files Include="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)**\*.*">
+        <Exclude Files="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)Scalerize.InfiniteGpu.Desktop.exe" />
+        <Exclude Files="$(var.Scalerize.InfiniteGpu.Desktop.TargetDir)Assets\**" />
+      </Files>
     </ComponentGroup>
 
     <!-- Feature to install -->

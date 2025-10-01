@@ -5,8 +5,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Constants
     /// <summary>
     /// Centralized URL constants for the desktop application.
     /// </summary>
-    public static class UrlConstants
+    public static class Constants
     {
+        public static readonly string AppName = "Scalerize.InfiniteGpu.Desktop";
 #if DEBUG
         /// <summary>
         /// Base URI for the backend API in development mode.

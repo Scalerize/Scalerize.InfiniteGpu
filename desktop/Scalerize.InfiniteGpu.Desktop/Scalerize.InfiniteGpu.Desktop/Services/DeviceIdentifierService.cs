@@ -1,3 +1,4 @@
+using Scalerize.InfiniteGpu.Desktop.Constants;
 using System;
 using System.IO;
 using System.Text;
@@ -22,7 +23,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         {
             // Use standard .NET path for unpackaged Windows apps
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var appFolder = Path.Combine(localAppData, "Scalerize.InfiniteGpu.Desktop");
+            var appFolder = Path.Combine(localAppData, Constants.Constants.AppName);
             var root = Path.Combine(appFolder, "Device");
 
             Directory.CreateDirectory(root);

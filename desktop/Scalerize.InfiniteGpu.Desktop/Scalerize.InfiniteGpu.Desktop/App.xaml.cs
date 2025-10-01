@@ -156,7 +156,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             return new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromMinutes(2),
-                BaseAddress = UrlConstants.BackendBaseUri
+                BaseAddress = Constants.Constants.BackendBaseUri
             };
         }
     }

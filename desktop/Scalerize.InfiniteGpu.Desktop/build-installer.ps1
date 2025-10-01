@@ -47,7 +47,7 @@ Write-Host "======================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Step 1: Check if WiX Toolset v6.0 is installed
-Write-Host "[1/6] Checking WiX Toolset v6.0 installation..." -ForegroundColor Yellow
+Write-Host "[1/4] Checking WiX Toolset v6.0 installation..." -ForegroundColor Yellow
 
 # Check if wix.exe is available globally (installed via dotnet tool)
 $wixExe = $null
@@ -83,7 +83,7 @@ if (-not $wixExe) {
 Write-Host ""
 
 # Step 2: Clean previous builds
-Write-Host "[2/6] Cleaning previous builds..." -ForegroundColor Yellow
+Write-Host "[2/4] Cleaning previous builds..." -ForegroundColor Yellow
 if (Test-Path $publishDir) {
     Remove-Item -Path $publishDir -Recurse -Force
     Write-Host "Cleaned publish directory" -ForegroundColor Green
@@ -101,14 +101,14 @@ Write-Host "Cleaned installer build directories" -ForegroundColor Green
 Write-Host ""
 
 # Step 3: Publish the desktop application
-Write-Host "[3/6] Publishing desktop application..." -ForegroundColor Yellow
+Write-Host "[3/4] Publishing desktop application..." -ForegroundColor Yellow
 $publishArgs = @(
     "publish",
     $desktopCsproj,
     "-c", $Configuration,
     "-r", "win-$($Platform.ToLower())",
     "--self-contained", "true",
-    "-p:PublishSingleFile=true",
+    "-p:PublishSingleFile=false",
     "-p:PublishReadyToRun=true"
 )
 
@@ -123,40 +123,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Desktop application published successfully" -ForegroundColor Green
 Write-Host ""
 
-# Step 4: Copy Assets folder to publish directory
-Write-Host "[4/6] Copying Assets folder to publish directory..." -ForegroundColor Yellow
-$assetsSourceDir = Join-Path $desktopProjectDir "Assets"
-$assetsDestDir = Join-Path $publishDir "Assets"
-
-if (Test-Path $assetsSourceDir) {
-    # Create Assets directory in publish folder if it doesn't exist
-    if (-not (Test-Path $assetsDestDir)) {
-        New-Item -ItemType Directory -Force -Path $assetsDestDir | Out-Null
-    }
-    
-    # Copy all files from Assets folder
-    Copy-Item -Path "$assetsSourceDir\*" -Destination $assetsDestDir -Recurse -Force
-    Write-Host "Assets folder copied successfully" -ForegroundColor Green
-    
-    # List copied files for verification
-    $copiedFiles = Get-ChildItem -Path $assetsDestDir -Recurse -File
-    Write-Host "Copied $($copiedFiles.Count) file(s) from Assets folder" -ForegroundColor Gray
-} else {
-    Write-Host "WARNING: Assets folder not found at: $assetsSourceDir" -ForegroundColor Yellow
-}
-Write-Host ""
-
-# Step 5: Harvest files using WiX heat command
-Write-Host "[5/6] Harvesting files from published output..." -ForegroundColor Yellow
-$harvestWxs = Join-Path $installerProjectDir "HarvestedFiles.wxs"
-
-# WiX v6.0 uses: wix extension add WixToolset.Heat.Extension
-# Then: wix build ... with heat directory
-Write-Host "Note: Using WiX v6.0 - file harvesting will be done during build" -ForegroundColor Gray
-Write-Host ""
-
 # Step 6: Build the MSI installer using WiX v6.0
-Write-Host "[6/6] Building MSI installer with WiX v6.0..." -ForegroundColor Yellow
+Write-Host "[4/4] Building MSI installer with WiX v6.0..." -ForegroundColor Yellow
 
 $productWxs = Join-Path $installerProjectDir "Package.wxs"
 $outputDir = Join-Path $installerProjectDir "bin\$Configuration\$Platform"

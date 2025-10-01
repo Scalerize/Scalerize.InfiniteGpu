@@ -161,7 +161,17 @@ namespace Scalerize.InfiniteGpu.Desktop
             AppWebView.CoreWebView2Initialized += OnCoreWebView2InitializationCompleted;
             AppWebView.NavigationCompleted += OnNavigationCompleted;
             AppWebView.NavigationStarting += OnNavigationStarting;
-            await AppWebView.EnsureCoreWebView2Async();
+
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var appFolder = Path.Combine(localAppData, Constants.Constants.AppName);
+            var cachePath = Path.Combine(appFolder, "WebViewCache");
+
+            var env = await CoreWebView2Environment.CreateWithOptionsAsync(
+                browserExecutableFolder: null,
+                userDataFolder: cachePath,
+                options: new CoreWebView2EnvironmentOptions());
+
+            await AppWebView.EnsureCoreWebView2Async(env);
         }
 
         private async void OnCoreWebView2InitializationCompleted(WebView2 sender, CoreWebView2InitializedEventArgs args)
@@ -241,6 +251,13 @@ namespace Scalerize.InfiniteGpu.Desktop
                 return;
             }
 
+            // Set window icon
+            var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "logo-blue.ico");
+            if (File.Exists(iconPath))
+            {
+                appWindow.SetIcon(iconPath);
+            }
+
             var titleBar = appWindow.TitleBar;
             titleBar.ExtendsContentIntoTitleBar = true;
             titleBar.ButtonBackgroundColor = Colors.Transparent;
@@ -261,9 +278,9 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         private void NavigateToFrontend()
         {
-            if (AppWebView.Source != UrlConstants.FrontendUri)
+            if (AppWebView.Source != Constants.Constants.FrontendUri)
             {
-                AppWebView.Source = UrlConstants.FrontendUri;
+                AppWebView.Source = Constants.Constants.FrontendUri;
             }
         }
 
