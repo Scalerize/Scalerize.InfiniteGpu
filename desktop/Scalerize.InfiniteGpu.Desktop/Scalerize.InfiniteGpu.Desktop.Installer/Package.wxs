@@ -47,6 +47,7 @@
                   Directory="DesktopFolder"
                   Name="InfiniteGpu"
                   Description="InfiniteGpu Desktop Application"
+                  Target="[#MainExe]"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="ProductIcon" />
         
@@ -55,6 +56,7 @@
                   Directory="ProgramMenuFolder"
                   Name="InfiniteGpu"
                   Description="InfiniteGpu Desktop Application"
+                  Target="[#MainExe]"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="ProductIcon" />
       </Component>
