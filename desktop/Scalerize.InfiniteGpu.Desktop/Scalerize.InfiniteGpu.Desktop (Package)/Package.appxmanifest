@@ -5,18 +5,19 @@
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:uap18="http://schemas.microsoft.com/appx/manifest/uap/windows10/18"
+  IgnorableNamespaces="uap rescap uap18">
 
-  <Identity
-    Name="ca6cd9da-91e3-4bf8-a674-12dfc764bc4e"
-    Publisher="CN=frank"
-    Version="1.0.11.0" />
+<Identity
+  Name="Scalerize.InfiniteGPU"
+  Version="1.0.11.0"
+  Publisher="CN=Scalerize" />
 
   <mp:PhoneIdentity PhoneProductId="ca6cd9da-91e3-4bf8-a674-12dfc764bc4e" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>InfiniteGpu</DisplayName>
-    <PublisherDisplayName>frank</PublisherDisplayName>
+    <DisplayName>InfiniteGPU</DisplayName>
+    <PublisherDisplayName>Scalerize</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
 
@@ -32,9 +33,9 @@
   <Applications>
     <Application Id="App"
       Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$">
+      EntryPoint="$targetentrypoint$" uap18:TrustLevel="mediumIL" uap18:RuntimeBehavior="windowsApp">
       <uap:VisualElements
-        DisplayName="InfiniteGpu"
+        DisplayName="InfiniteGPU"
         Description="InfiniteGPU computing network platform"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
