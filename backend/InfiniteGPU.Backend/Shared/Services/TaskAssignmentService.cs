@@ -53,8 +53,12 @@ public sealed class TaskAssignmentService
             .Where(s =>
                 (s.Status == SubtaskStatusEnum.Pending ||
                  (s.Status == SubtaskStatusEnum.Failed && s.RequiresReassignment)) &&
-                !string.IsNullOrEmpty(s.Task.UserId) &&
-                s.Task.UserId != providerUserId);
+                !string.IsNullOrEmpty(s.Task.UserId)
+#if DEBUG
+                );
+#else
+                && s.Task.UserId != providerUserId);
+#endif
 
 
         var subtask = await query
@@ -523,7 +527,7 @@ public sealed class TaskAssignmentService
         var activeSubtasks = await _context.Subtasks
             .Include(s => s.Task)
             .Where(s => s.DeviceId == deviceId &&
-                       (s.Status == SubtaskStatusEnum.Assigned || s.Status == SubtaskStatusEnum.Executing))
+                        (s.Status == SubtaskStatusEnum.Assigned || s.Status == SubtaskStatusEnum.Executing))
             .ToListAsync(cancellationToken);
 
         if (activeSubtasks.Count == 0)
@@ -574,16 +578,16 @@ public sealed class TaskAssignmentService
 
             await AppendTimelineEventAsync(subtask, "device-disconnection-failure",
                 $"Subtask failed due to device disconnection: {failureReason}", new
-            {
-                providerUserId,
-                deviceId,
-                failedAtUtc = now,
-                failureReason
-            }, cancellationToken);
+                {
+                    providerUserId,
+                    deviceId,
+                    failedAtUtc = now,
+                    failureReason
+                }, cancellationToken);
 
             // Try to reassign subtask to another node
             bool canReassign = await CanReassignSubtaskAsync(subtask, cancellationToken);
-            
+
             if (canReassign)
             {
                 subtask.RequiresReassignment = true;
@@ -591,7 +595,7 @@ public sealed class TaskAssignmentService
                 subtask.AssignedProviderId = null;
                 subtask.DeviceId = null;
                 subtask.Status = SubtaskStatusEnum.Pending;
-                
+
                 _logger.LogInformation(
                     "Subtask {SubtaskId} marked for reassignment after device {DeviceId} disconnection",
                     subtask.Id,
@@ -599,33 +603,33 @@ public sealed class TaskAssignmentService
 
                 await AppendTimelineEventAsync(subtask, "reassignment-requested",
                     "Subtask marked for reassignment after device disconnection", new
-                {
-                    requestedAtUtc = now,
-                    previousDeviceId = deviceId,
-                    previousProvider = providerUserId
-                }, cancellationToken);
+                    {
+                        requestedAtUtc = now,
+                        previousDeviceId = deviceId,
+                        previousProvider = providerUserId
+                    }, cancellationToken);
             }
             else
             {
                 subtask.RequiresReassignment = false;
-                
+
                 // Only mark task as failed if FillBindingsViaApi is false
                 if (subtask.Task is not null && !subtask.Task.FillBindingsViaApi)
                 {
                     _logger.LogWarning(
                         "No available nodes for reassignment of subtask {SubtaskId} after device disconnection, marking task as failed",
                         subtask.Id);
-  
+
                     subtask.Task.Status = TaskStatusEnum.Failed;
                     subtask.Task.UpdatedAt = now;
 
                     await AppendTimelineEventAsync(subtask, "task-failed",
                         "Task failed - no available nodes for reassignment after device disconnection", new
-                    {
-                        failedAtUtc = now,
-                        taskId = subtask.Task.Id,
-                        deviceId
-                    }, cancellationToken);
+                        {
+                            failedAtUtc = now,
+                            taskId = subtask.Task.Id,
+                            deviceId
+                        }, cancellationToken);
                 }
                 else if (subtask.Task is not null)
                 {
@@ -636,7 +640,8 @@ public sealed class TaskAssignmentService
                 }
             }
 
-            results.Add(new FailureResult(subtask, provider, canReassign, subtask.Task?.Status == TaskStatusEnum.Failed));
+            results.Add(
+                new FailureResult(subtask, provider, canReassign, subtask.Task?.Status == TaskStatusEnum.Failed));
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -648,6 +653,7 @@ public sealed class TaskAssignmentService
 
         return results;
     }
+
     #endregion
 
     #region Helpers

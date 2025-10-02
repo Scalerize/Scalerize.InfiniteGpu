@@ -34,7 +34,6 @@ public class TaskHub : Hub
     public const string OnCompleteEvent = "OnComplete";
     public const string OnFailureEvent = "OnFailure";
     public const string OnAvailableSubtasksChangedEvent = "OnAvailableSubtasksChanged";
-    public const string OnExecutionEnvironmentUpdatedEvent = "OnExecutionEnvironmentUpdated";
     public const string OnExecutionRequestedEvent = "OnExecutionRequested";
     public const string OnExecutionAcknowledgedEvent = "OnExecutionAcknowledged";
 
