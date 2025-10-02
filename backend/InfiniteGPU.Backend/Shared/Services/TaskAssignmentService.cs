@@ -53,7 +53,8 @@ public sealed class TaskAssignmentService
             .Where(s =>
                 (s.Status == SubtaskStatusEnum.Pending ||
                  (s.Status == SubtaskStatusEnum.Failed && s.RequiresReassignment)) &&
-                !string.IsNullOrEmpty(s.Task.UserId));
+                !string.IsNullOrEmpty(s.Task.UserId) &&
+                s.Task.UserId != providerUserId);
 
 
         var subtask = await query
@@ -106,6 +107,13 @@ public sealed class TaskAssignmentService
         {
             _logger.LogWarning("Subtask {SubtaskId} not found for provider {ProviderId} accept", subtaskId,
                 providerUserId);
+            return null;
+        }
+
+        if (subtask.Task?.UserId == providerUserId)
+        {
+            _logger.LogWarning("Provider {ProviderId} cannot accept their own task {TaskId}", providerUserId,
+                subtask.Task.Id);
             return null;
         }
 

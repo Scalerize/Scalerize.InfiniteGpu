@@ -57,6 +57,11 @@ public class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand, TaskD
             throw new UnauthorizedAccessException("User must be an active Requestor.");
         }
 
+        if (user.Balance <= 0)
+        {
+            throw new InvalidOperationException("Insufficient balance. Please add funds to your account before creating tasks.");
+        }
+
         var now = DateTime.UtcNow;
         var inferenceBindings = MapInferenceBindings(request.Inference, request.FillBindingsViaApi);
         var outputBindings = MapOutputBindings(request.Inference);
