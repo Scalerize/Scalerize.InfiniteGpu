@@ -901,17 +901,17 @@ export const NewTaskRequestDialog = ({
 
         {selectedMode === "inference" && (
           <section
-            className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4"
+            className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30"
             aria-labelledby="output-settings-label"
           >
             <div className="flex flex-col gap-1">
               <h3
                 id="output-settings-label"
-                className="text-sm font-semibold text-emerald-700"
+                className="text-sm font-semibold text-emerald-700 dark:text-emerald-400"
               >
                 Output settings
               </h3>
-              <p className="text-xs text-emerald-600/80">
+              <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
                 Define output tensor names and their format. Binary outputs will be uploaded to storage and returned as URLs.
               </p>
             </div>
@@ -920,11 +920,11 @@ export const NewTaskRequestDialog = ({
               {outputBindings.map((output, index) => (
                 <div
                   key={output.id}
-                  className="space-y-3 rounded-lg border border-emerald-100 bg-white/70 p-4 shadow-sm"
+                  className="space-y-3 rounded-lg border border-emerald-100 bg-white/70 p-4 shadow-sm dark:border-emerald-900/50 dark:bg-slate-800/70"
                 >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-1 flex-col gap-1">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         Tensor name
                       </label>
                       <input
@@ -940,13 +940,13 @@ export const NewTaskRequestDialog = ({
                           )
                         }
                         placeholder="e.g. output_0"
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring focus:ring-emerald-200/60"
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring focus:ring-emerald-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-emerald-600 dark:focus:ring-emerald-900/60"
                         required
                       />
                     </div>
 
                     <div className="flex flex-col gap-1 sm:w-48">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         Payload type
                       </span>
                       <SelectDropdown
@@ -973,7 +973,7 @@ export const NewTaskRequestDialog = ({
 
                   {output.payloadType === "binary" && (
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         File format
                       </span>
                       <SelectDropdown
@@ -999,7 +999,7 @@ export const NewTaskRequestDialog = ({
                         ]}
                         triggerClassName="w-full"
                       />
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         Choose the binary format for saving the output tensor
                       </p>
                     </div>
@@ -1018,7 +1018,7 @@ export const NewTaskRequestDialog = ({
                               )
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-900/50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                       disabled={outputBindings.length === 1}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -1038,7 +1038,7 @@ export const NewTaskRequestDialog = ({
                     createOutputBinding(),
                   ])
                 }
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-500"
+                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-500 dark:bg-emerald-700 dark:hover:bg-emerald-600"
               >
                 <CirclePlus className="h-3.5 w-3.5" />
                 Add output binding

@@ -24,6 +24,14 @@ public sealed class GetFinanceSummaryQueryHandler : IRequestHandler<GetFinanceSu
         var now = DateTime.UtcNow;
         var since = now - LookbackWindow;
 
+        var user = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.Balance })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var userBalance = user?.Balance ?? 0m;
+
         var creditProjections = await _context.Earnings
             .AsNoTracking()
             .Where(e => e.ProviderUserId == userId)
@@ -103,14 +111,6 @@ public sealed class GetFinanceSummaryQueryHandler : IRequestHandler<GetFinanceSu
             .ThenBy(entry => entry.EntryId, StringComparer.Ordinal)
             .ToList();
 
-        decimal runningBalance = 0m;
-        foreach (var entry in chronological)
-        {
-            runningBalance += entry.Kind == FinanceLedgerEntryKind.Credit ? entry.Amount : -entry.Amount;
-            entry.BalanceAfter = runningBalance;
-        }
-
-        var netBalance = runningBalance;
         var ledger = chronological
             .OrderByDescending(entry => entry.OccurredAtUtc)
             .ThenByDescending(entry => entry.EntryId, StringComparer.Ordinal)
@@ -140,7 +140,7 @@ public sealed class GetFinanceSummaryQueryHandler : IRequestHandler<GetFinanceSu
             ascending: false);
 
         return new FinanceSummaryDto(
-            NetBalance: netBalance,
+            Balance: userBalance,
             TotalCredits: totalCredits,
             TotalDebits: totalDebits,
             CreditsLast24Hours: creditsLast24h,

@@ -77,8 +77,8 @@ export const PaymentsEarningsPanel = () => {
           <SummaryCard
             icon={<Wallet className="h-5 w-5 text-indigo-500" />}
             title="Available balance"
-            value={`$${financeSummary.netBalance.toFixed(2)}`}
-            helper={`Total credits: $${financeSummary.totalCredits.toFixed(2)}`}
+            value={`$${financeSummary.balance.toFixed(2)}`}
+            helper="Current account balance"
             action={
               <button
                 onClick={() => setIsTopUpDialogOpen(true)}
@@ -109,7 +109,7 @@ export const PaymentsEarningsPanel = () => {
             action={
               <button
                 onClick={() => setIsSettlementDialogOpen(true)}
-                disabled={financeSummary.netBalance < 30}
+                disabled={financeSummary.balance < 30}
                 className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:text-emerald-300"
               >
                 <Plus className="h-3 w-3" />
@@ -273,7 +273,7 @@ export const PaymentsEarningsPanel = () => {
         isOpen={isSettlementDialogOpen}
         onClose={() => setIsSettlementDialogOpen(false)}
         onSettle={handleSettle}
-        availableBalance={financeSummary.netBalance}
+        availableBalance={financeSummary.balance}
       />
     </>
   );

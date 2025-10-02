@@ -9,7 +9,7 @@ public enum FinanceLedgerEntryKind
 }
 
 public sealed record FinanceSummaryDto(
-    decimal NetBalance,
+    decimal Balance,
     decimal TotalCredits,
     decimal TotalDebits,
     decimal CreditsLast24Hours,

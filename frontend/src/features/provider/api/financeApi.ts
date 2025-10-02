@@ -1,6 +1,7 @@
 import { apiRequest } from '../../../shared/utils/apiClient';
 
 export interface FinanceSummary {
+  balance: number;
   netBalance: number;
   totalCredits: number;
   totalDebits: number;
