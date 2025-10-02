@@ -493,8 +493,6 @@ public class TaskHub : Hub
 
         var broadcasts = new List<Task>
         {
-            clients.Group(TaskGroupName(subtask.TaskId))
-                .SendAsync(OnExecutionRequestedEvent, payload, cancellationToken),
             clients.Group(UserGroupName(subtask.Task!.UserId))
                 .SendAsync("TaskUpdated", BuildTaskDto(subtask.Task!), cancellationToken)
         };
