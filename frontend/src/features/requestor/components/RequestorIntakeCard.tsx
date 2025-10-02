@@ -70,18 +70,7 @@ export const RequestorIntakeCard = () => {
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg bg-white/10 px-4 py-3 text-sm dark:bg-white/5">
-              <span className="text-xs uppercase tracking-wide text-indigo-200 dark:text-indigo-300">Nodes</span>
-              <p className="text-lg font-semibold text-white">
-                {intake.connectedNodes.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-lg bg-white/10 px-4 py-3 text-sm dark:bg-white/5">
-              <span className="text-nowrap text-xs uppercase tracking-wide text-indigo-200 dark:text-indigo-300">Task</span>
-              <p className="text-nowrap text-lg font-semibold text-white">
-                {intake.tasksPerHour} / h
-              </p>
-            </div>
+        
           </div>
         </div>
       </div>
