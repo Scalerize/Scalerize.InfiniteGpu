@@ -291,10 +291,6 @@ msbuild /t:Publish /p:Configuration=Release
 
 Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
 
-## 📄 License
-
-This project is proprietary software. All rights reserved.
-
 ## 🙏 Acknowledgments
 
 Built with modern best practices and industry-leading technologies to deliver a robust, scalable compute-sharing platform.
