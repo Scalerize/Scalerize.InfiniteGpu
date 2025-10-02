@@ -223,7 +223,7 @@ export const RequestHistoryPanel = () => {
         : null;
 
     return {
-      activeLabel: formatWithLeadingZero(activeCount),
+      activeLabel: (activeCount !== null ? activeCount :  "—"),
       activeHelper:
         activeCount > 0
           ? "Jobs currently streaming subtasks to providers"
