@@ -548,24 +548,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private static Uri? ResolveModelUri(SubtaskPayload subtask)
         {
-            if (TryCreateUri(subtask.ExecutionSpec?.ResolvedOnnxModelUri, out var resolved))
-            {
-                return resolved;
-            }
-
             if (TryCreateUri(subtask.ExecutionSpec?.OnnxModelUrl, out var specUrl))
             {
                 return specUrl;
-            }
-
-            if (TryCreateUri(subtask.OnnxModel?.ResolvedReadUri, out var metadataResolved))
-            {
-                return metadataResolved;
-            }
-
-            if (TryCreateUri(subtask.OnnxModel?.ReadUri, out var readUri))
-            {
-                return readUri;
             }
 
             return null;
@@ -719,7 +704,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private sealed class ExecutionSpecPayload
         {
             public string? OnnxModelUrl { get; init; }
-            public string? ResolvedOnnxModelUri { get; init; }
         }
 
         private sealed class ExecutionStatePayload
