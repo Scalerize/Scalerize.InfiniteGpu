@@ -34,7 +34,6 @@ public class TaskHub : Hub
     public const string OnCompleteEvent = "OnComplete";
     public const string OnFailureEvent = "OnFailure";
     public const string OnAvailableSubtasksChangedEvent = "OnAvailableSubtasksChanged";
-    public const string OnExecutionEnvironmentUpdatedEvent = "OnExecutionEnvironmentUpdated";
     public const string OnExecutionRequestedEvent = "OnExecutionRequested";
     public const string OnExecutionAcknowledgedEvent = "OnExecutionAcknowledged";
 
@@ -494,8 +493,6 @@ public class TaskHub : Hub
 
         var broadcasts = new List<Task>
         {
-            clients.Group(TaskGroupName(subtask.TaskId))
-                .SendAsync(OnExecutionRequestedEvent, payload, cancellationToken),
             clients.Group(UserGroupName(subtask.Task!.UserId))
                 .SendAsync("TaskUpdated", BuildTaskDto(subtask.Task!), cancellationToken)
         };
