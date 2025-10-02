@@ -18,7 +18,7 @@ public class ApplicationUser : IdentityUser
     public string? ResourceCapabilities { get; set; }
 
     [Column(TypeName = "decimal(18,6)")]
-    public decimal Balance { get; set; } = 10m;
+    public decimal Balance { get; set; } = 0m;
 
     [Column(TypeName = "nvarchar(255)")]
     public string? StripeConnectedAccountId { get; set; }
