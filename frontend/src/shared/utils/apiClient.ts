@@ -59,8 +59,31 @@ export async function apiRequest<TResponse, TBody = unknown>(
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`API ${method} ${path} failed: ${response.status} ${errorText}`);
+    let errorMessage = 'An unexpected error occurred';
+    
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        // Backend returns errors in { Error: "message" } format
+        if (errorData && typeof errorData.error === 'string') {
+          // Also check lowercase 'error' for consistency
+          errorMessage = errorData.error;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      }
+    } catch {
+      // If parsing fails, use a generic message
+      errorMessage = `Request failed with status ${response.status}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 
   if (response.status === 204) {

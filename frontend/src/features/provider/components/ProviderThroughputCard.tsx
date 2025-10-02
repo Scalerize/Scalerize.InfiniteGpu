@@ -32,15 +32,6 @@ const resolveFallbackValue = (loading: boolean, error: string | null) => {
   return "Not provided";
 };
 
-const MetricBadge = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-lg bg-white/10 px-4 py-3 text-sm dark:bg-white/5">
-    <span className="text-nowrap text-xs uppercase tracking-wide text-indigo-200 dark:text-indigo-300">
-      {label}
-    </span>
-    <p className="text-nowrap text-lg font-semibold text-white">{value}</p>
-  </div>
-);
-
 const CardStat = ({
   icon: Icon,
   label,
@@ -203,15 +194,13 @@ export const ProviderThroughputCard = () => {
               Provider throughput
             </span>
             <p className="mt-2 text-xl font-semibold text-white">
-              56 tasks / hour
+              0 tasks / hour
             </p>
             <p className="text-sm text-indigo-100">
               Computed from recent task history.
             </p>
           </div>
           <div className="flex gap-3">
-            <MetricBadge label="Queue depth" value={`4`} />
-            <MetricBadge label="Runtime success" value={"89%"} />
           </div>
         </div>
       </div>

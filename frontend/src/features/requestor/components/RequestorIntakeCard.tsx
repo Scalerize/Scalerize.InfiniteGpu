@@ -114,7 +114,7 @@ export const RequestorIntakeCard = () => {
             icon={<Send className="h-5 w-5" />}
             title="Available tasks"
             value={intake.availableTasks.toLocaleString()}
-            description="Ready for partition assignment"
+            description="Ready for assignment"
           />
           <StatCard
             icon={<Gauge className="h-5 w-5" />}
