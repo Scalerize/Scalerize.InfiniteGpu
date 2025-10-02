@@ -26,6 +26,7 @@ internal static class SubtaskMapping
             ParametersJson = subtask.Params,
             AssignedProviderId = subtask.AssignedProviderId,
             DeviceId = subtask.DeviceId,
+            ExecutionSpec = ParseExecutionSpec(subtask.ExecutionSpecJson, subtask.OnnxModelBlobUri),
             ExecutionState = ParseExecutionState(subtask.ExecutionStateJson),
             EstimatedEarnings = subtask.CostUsd ?? 0,
             DurationSeconds = subtask.DurationSeconds,
@@ -53,7 +54,9 @@ internal static class SubtaskMapping
     {
         return new OnnxModelMetadataDto
         {
-            BlobUri = subtask.OnnxModelBlobUri
+            BlobUri = subtask.OnnxModelBlobUri,
+            ReadUri = subtask.OnnxModelBlobUri,
+            ResolvedReadUri = subtask.OnnxModelBlobUri
         };
     }
 
@@ -75,6 +78,46 @@ internal static class SubtaskMapping
                 CreatedAtUtc = e.CreatedAtUtc
             })
             .ToArray();
+    }
+
+    private static SubtaskDto.ExecutionSpecDto? ParseExecutionSpec(string? executionSpecJson, string? onnxModelBlobUri)
+    {
+        ExecutionSpecModel? spec = null;
+
+        if (!string.IsNullOrWhiteSpace(executionSpecJson))
+        {
+            try
+            {
+                spec = JsonSerializer.Deserialize<ExecutionSpecModel>(executionSpecJson, JsonOptions);
+            }
+            catch (JsonException)
+            {
+                // Ignore parsing errors and use fallback
+            }
+        }
+
+        // If we have a model URI from either source, create an ExecutionSpec
+        var modelUrl = spec?.OnnxModelUrl ?? onnxModelBlobUri;
+        if (string.IsNullOrWhiteSpace(modelUrl) && spec is null)
+        {
+            return null;
+        }
+
+        return new SubtaskDto.ExecutionSpecDto
+        {
+            RunMode = spec?.RunMode ?? "inference",
+            OnnxModelUrl = modelUrl,
+            ResolvedOnnxModelUri = modelUrl,
+            InputTensorShape = spec?.InputTensorShape,
+            Shard = spec?.Shard is not null
+                ? new SubtaskDto.ExecutionSpecDto.ShardDescriptorDto
+                {
+                    Index = spec.Shard.Index,
+                    Count = spec.Shard.Count,
+                    Fraction = spec.Shard.Fraction
+                }
+                : null
+        };
     }
 
     private static SubtaskDto.ExecutionStateDto? ParseExecutionState(string? executionStateJson)

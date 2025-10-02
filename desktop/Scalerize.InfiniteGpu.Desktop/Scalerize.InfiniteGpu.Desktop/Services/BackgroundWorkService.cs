@@ -548,9 +548,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private static Uri? ResolveModelUri(SubtaskPayload subtask)
         {
-            if (TryCreateUri(subtask.ExecutionSpec?.OnnxModelUrl, out var specUrl))
+            if (TryCreateUri(subtask.OnnxModel?.ReadUri, out var readUri))
             {
-                return specUrl;
+                return readUri;
             }
 
             return null;
