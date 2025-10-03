@@ -30,26 +30,17 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Parse the model using protobuf
-                var model = await Task.Run(() => ParseModelProto(modelData), cancellationToken).ConfigureAwait(false);
+                return await Task.Run(() =>
+                 {
+                     var model = ParseModelProto(modelData);
+                     return new OnnxModelStructure(
+                         ModelInfo: ExtractModelMetadata(model),
+                         Graph: ExtractGraphInformation(model),
+                         TotalWeightCount: CountTotalWeights(model),
+                         RawModel: model
+                     );
+                 }, cancellationToken);
 
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Extract graph information
-                var graphInfo = ExtractGraphInformation(model);
-
-                // Count total weights
-                var totalWeightCount = CountTotalWeights(model);
-
-                return new OnnxModelStructure(
-                    ModelInfo: ExtractModelMetadata(model),
-                    Graph: graphInfo,
-                    TotalWeightCount: totalWeightCount,
-                    IrVersion: model.IrVersion,
-                    ProducerName: model.ProducerName ?? string.Empty,
-                    ProducerVersion: model.ProducerVersion ?? string.Empty,
-                    Domain: model.Domain ?? string.Empty
-                );
             }
             catch (OperationCanceledException)
             {
@@ -60,7 +51,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 Debug.WriteLine($"[OnnxParsingService] Failed to parse ONNX model: {ex}");
                 throw new InvalidOperationException("Failed to parse ONNX model file.", ex);
             }
-        } 
+        }
 
         private static Onnx.ModelProto ParseModelProto(byte[] data)
         {
@@ -206,7 +197,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private static string ExtractTensorTypeInfo(Onnx.TypeProto.Types.Tensor tensorType)
         {
             var elemType = tensorType.ElemType.ToString();
-            
+
             if (tensorType.Shape?.Dim != null && tensorType.Shape.Dim.Count > 0)
             {
                 var dims = tensorType.Shape.Dim
@@ -280,11 +271,8 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
     public sealed record OnnxModelStructure(
         OnnxModelInfo ModelInfo,
         OnnxGraphStructure Graph,
-        long TotalWeightCount,
-        long IrVersion,
-        string ProducerName,
-        string ProducerVersion,
-        string Domain
+        Onnx.ModelProto RawModel,
+        long TotalWeightCount
     );
 
     /// <summary>
