@@ -125,7 +125,6 @@ export const PaymentsEarningsPanel = () => {
             <span className="text-sm font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-400">Ledger</span>
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Credits & debits</h3>
-              <span className="text-xs font-medium uppercase text-slate-400 dark:text-slate-500">Auto reconciled every 5 min</span>
             </div>
           </header>
 

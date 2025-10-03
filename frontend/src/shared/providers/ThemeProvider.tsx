@@ -1,5 +1,6 @@
 import { useLayoutEffect, type ReactNode } from 'react';
 import { useThemeStore } from '../stores/themeStore';
+import { DesktopBridge } from '../services/DesktopBridge';
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -9,6 +10,11 @@ const applyTheme = (isDark: boolean) => {
   const root = window.document.documentElement;
   root.classList.remove('light', 'dark');
   root.classList.add(isDark ? 'dark' : 'light');
+  
+  // Notify desktop app of theme change
+  if (DesktopBridge.isAvailable()) {
+    DesktopBridge.emit('app:changeTheme', { isDark });
+  }
 };
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {

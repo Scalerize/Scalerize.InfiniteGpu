@@ -6,6 +6,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.Web.WebView2.Core;
 using Scalerize.InfiniteGpu.Desktop.Constants;
 using Scalerize.InfiniteGpu.Desktop.Services;
@@ -103,7 +104,8 @@ namespace Scalerize.InfiniteGpu.Desktop
         private TaskCompletionSource<bool>? _shutdownCompletionSource;
         private Window? _window;
         private bool _isShuttingDown;
-        private bool _serviceStopped;
+        private bool _serviceStopped; 
+        private bool _isDarkTheme;
 
         public MainWindow(
             OnnxRuntimeService onnxRuntimeService,
@@ -120,7 +122,21 @@ namespace Scalerize.InfiniteGpu.Desktop
 
             InitializeComponent();
             _isDevelopment = DetermineIsDevelopment();
+            _isDarkTheme = DetectSystemTheme(); // Default to system theme
             PrepareAppAsync();
+        }
+
+        public AppWindow? GetAppWindow() => _appWindow;
+
+        private static bool DetectSystemTheme()
+        {
+            // Detect system theme preference
+            var uiSettings = new Windows.UI.ViewManagement.UISettings();
+            var foreground = uiSettings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Foreground);
+            
+            // If foreground is white-ish, system is in dark mode
+            // If foreground is black-ish, system is in light mode
+            return (foreground.R + foreground.G + foreground.B) > 382; // 382 = 127.5 * 3 (midpoint)
         }
 
 
@@ -243,10 +259,10 @@ namespace Scalerize.InfiniteGpu.Desktop
                 _appWindow = AppWindow.GetFromWindowId(windowId);
                 _appWindow.Closing += OnAppWindowClosing;
             }
+ 
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(1450, 850));
 
-            var appWindow = _appWindow;
-
-            if (!AppWindowTitleBar.IsCustomizationSupported() || appWindow is null)
+            if (!AppWindowTitleBar.IsCustomizationSupported() || _appWindow is null)
             {
                 return;
             }
@@ -255,21 +271,21 @@ namespace Scalerize.InfiniteGpu.Desktop
             var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "logo-blue.ico");
             if (File.Exists(iconPath))
             {
-                appWindow.SetIcon(iconPath);
+                _appWindow.SetIcon(iconPath);
             }
 
-            var titleBar = appWindow.TitleBar;
+            var titleBar = _appWindow.TitleBar;
             titleBar.ExtendsContentIntoTitleBar = true;
-            titleBar.ButtonBackgroundColor = Colors.Transparent;
-            titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+
+            ApplyTheme(_isDarkTheme);
 
             // Set minimum window size
-            if (appWindow.Presenter is OverlappedPresenter presenter)
+            if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
                 presenter.IsMinimizable = true;
                 presenter.IsMaximizable = true;
                 presenter.IsResizable = true;
-                
+
                 var minSize = new Windows.Graphics.SizeInt32(420, 0);
                 presenter.SetBorderAndTitleBar(true, true);
                 SetWindowMinSize(hwnd, 420, 300);
@@ -288,12 +304,7 @@ namespace Scalerize.InfiniteGpu.Desktop
         {
             // Track navigation attempts and show loading overlay
             Debug.WriteLine($"Navigation starting to: {args.Uri}");
-            
-            // Show loading overlay when navigating to the frontend
-            if (args.Uri.Contains("localhost:5173"))
-            {
-                SetLoadingState(true, "Loading...", "Connecting to the application interface.");
-            }
+            SetLoadingState(true, "Loading...", "Connecting to the application interface.");
         }
 
         private void OnNavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
@@ -303,7 +314,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             {
                 SetLoadingState(false);
             }
-            
+
             _ = NotifyFrontendRuntimeStateAsync();
         }
 
@@ -321,7 +332,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             try
             {
                 var errorPagePath = Path.Combine(AppContext.BaseDirectory, "Assets", "ErrorPage.html");
-                
+
                 if (File.Exists(errorPagePath))
                 {
                     var errorPageUri = new Uri($"file:///{errorPagePath.Replace("\\", "/")}");
@@ -365,6 +376,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             _webViewBridge.RegisterMethod("device:getIdentifier", HandleDeviceGetIdentifierAsync);
             _webViewBridge.RegisterEventHandler("error:retry", OnErrorRetryAsync);
             _webViewBridge.RegisterEventHandler("error:close", OnErrorCloseAsync);
+            _webViewBridge.RegisterEventHandler("app:changeTheme", OnThemeChangeAsync);
 
             _bridgeHandlersRegistered = true;
         }
@@ -446,10 +458,80 @@ namespace Scalerize.InfiniteGpu.Desktop
             return Task.CompletedTask;
         }
 
-        private async Task OnErrorCloseAsync(JsonNode? payload)
+        private Task OnErrorCloseAsync(JsonNode? payload)
         {
             _allowClose = true;
             DispatcherQueue.TryEnqueue(() => OnTrayIconQuitClick(null, null));
+            return Task.CompletedTask;
+        }
+
+        private Task OnThemeChangeAsync(JsonNode? payload)
+        {
+            if (payload is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            var isDark = payload["isDark"]?.GetValue<bool>() ?? true;
+            
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ApplyTheme(isDark);
+            });
+
+            return Task.CompletedTask;
+        }
+
+        private void ApplyTheme(bool isDark)
+        {
+            _isDarkTheme = isDark;
+
+            if (_appWindow is null)
+            {
+                return;
+            }
+
+            var titleBar = _appWindow.TitleBar;
+            if (!AppWindowTitleBar.IsCustomizationSupported())
+            {
+                return;
+            }
+
+            // Update Mica backdrop
+            if (SystemBackdrop is MicaBackdrop mica)
+            {
+                mica.Kind = isDark 
+                    ? Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base 
+                    : Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt;
+            }
+
+            // Define colors based on theme
+            var buttonForegroundColor = isDark
+                ? Windows.UI.Color.FromArgb(255, 255, 255, 255)  
+                : Windows.UI.Color.FromArgb(255, 0, 0, 0);       
+
+            var buttonHoverBackgroundColor = isDark
+                ? Windows.UI.Color.FromArgb(26, 255, 255, 255) 
+                : Windows.UI.Color.FromArgb(26, 0, 0, 0);    
+
+            var buttonPressedBackgroundColor = isDark
+                ? Windows.UI.Color.FromArgb(51, 255, 255, 255)  
+                : Windows.UI.Color.FromArgb(51, 0, 0, 0);     
+
+            var closeButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(255, 232, 17, 35); 
+            var closeButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(255, 241, 112, 122);
+
+            // Apply button colors
+            titleBar.ButtonForegroundColor = buttonForegroundColor;
+            titleBar.ButtonInactiveForegroundColor = isDark
+                ? Windows.UI.Color.FromArgb(128, 255, 255, 255) 
+                : Windows.UI.Color.FromArgb(128, 0, 0, 0);    
+
+            titleBar.ButtonHoverForegroundColor = buttonForegroundColor;
+            titleBar.ButtonHoverBackgroundColor = buttonHoverBackgroundColor;
+
+            titleBar.ButtonPressedForegroundColor = buttonForegroundColor;
+            titleBar.ButtonPressedBackgroundColor = buttonPressedBackgroundColor;
         }
 
         private Task OnFrontendReadyAsync(JsonNode? payload)
@@ -635,12 +717,12 @@ namespace Scalerize.InfiniteGpu.Desktop
             AppWebView.CoreWebView2Initialized -= OnCoreWebView2InitializationCompleted;
             AppWebView.NavigationCompleted -= OnNavigationCompleted;
             AppWebView.NavigationStarting -= OnNavigationStarting;
-            
+
             if (AppWebView.CoreWebView2 is not null)
             {
                 AppWebView.CoreWebView2.NavigationCompleted -= OnCoreNavigationCompleted;
             }
-            
+
             if (_appWindow is not null)
             {
                 _appWindow.Closing -= OnAppWindowClosing;
