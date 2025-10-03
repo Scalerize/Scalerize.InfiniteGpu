@@ -18,6 +18,13 @@ public sealed class TaskAssignmentService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private static readonly IReadOnlyDictionary<string, decimal> CostRatesPerSecond = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["cpu"] = 0.0002m,
+        ["gpu"] = 0.0009m,
+        ["npu"] = 0.0010m
+    };
+
     private readonly AppDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<TaskAssignmentService> _logger;
@@ -843,6 +850,7 @@ public sealed class TaskAssignmentService
 
             double? durationSeconds = null;
             decimal? costUsd = null;
+            string? device = null;
 
             if (metricsElement.TryGetProperty("durationSeconds", out var durationElement) &&
                 durationElement.TryGetDouble(out var durationValue))
@@ -850,19 +858,15 @@ public sealed class TaskAssignmentService
                 durationSeconds = durationValue;
             }
 
-            if (metricsElement.TryGetProperty("costUsd", out var costElement))
+            if (metricsElement.TryGetProperty("device", out var deviceElement) &&
+                deviceElement.ValueKind == JsonValueKind.String)
             {
-                try
-                {
-                    costUsd = costElement.GetDecimal();
-                }
-                catch (FormatException)
-                {
-                    if (costElement.TryGetDouble(out var costDouble))
-                    {
-                        costUsd = (decimal)costDouble;
-                    }
-                }
+                device = deviceElement.GetString();
+            }
+
+            if (durationSeconds.HasValue && !string.IsNullOrWhiteSpace(device))
+            {
+                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device);
             }
 
             if (durationSeconds is null && costUsd is null)
@@ -876,6 +880,19 @@ public sealed class TaskAssignmentService
         {
             return null;
         }
+    }
+
+    private static decimal CalculateCost(TimeSpan duration, string device)
+    {
+        var normalizedDevice = device?.Trim().ToLowerInvariant() ?? "cpu";
+        
+        if (!CostRatesPerSecond.TryGetValue(normalizedDevice, out var rate))
+        {
+            rate = CostRatesPerSecond["cpu"];
+        }
+
+        var cost = rate * (decimal)duration.TotalSeconds;
+        return Math.Round(cost, 4, MidpointRounding.AwayFromZero);
     }
 
     private async Task CreateEarningAndWithdrawAsync(Subtask subtask, Data.Entities.Task task)

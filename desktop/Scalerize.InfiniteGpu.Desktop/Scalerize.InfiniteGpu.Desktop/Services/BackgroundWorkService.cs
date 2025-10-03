@@ -30,12 +30,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             WriteIndented = false
         };
-        private static readonly IReadOnlyDictionary<ExecutionProviderDevice, decimal> CostRatesPerSecond = new Dictionary<ExecutionProviderDevice, decimal>
-        {
-            [ExecutionProviderDevice.Cpu] = 0.0002m,
-            [ExecutionProviderDevice.Gpu] = 0.0009m,
-            [ExecutionProviderDevice.Npu] = 0.0010m
-        };
 
         private readonly DeviceIdentifierService _deviceIdentifierService;
         private readonly OnnxRuntimeService _onnxRuntimeService;
@@ -385,7 +379,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 stopwatch.Stop();
 
                 var device = ResolveDevice(subtask);
-                var cost = CalculateCost(stopwatch.Elapsed, device);
 
                 var resultPayload = new
                 {
@@ -394,7 +387,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     metrics = new
                     {
                         durationSeconds = stopwatch.Elapsed.TotalSeconds,
-                        costUsd = cost,
                         device = device.ToString().ToLowerInvariant()
                     },
                     outputs = processedOutputs
@@ -645,17 +637,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     device = ExecutionProviderDevice.Cpu;
                     return false;
             }
-        }
-
-        private static decimal CalculateCost(TimeSpan duration, ExecutionProviderDevice device)
-        {
-            if (!CostRatesPerSecond.TryGetValue(device, out var rate))
-            {
-                rate = CostRatesPerSecond[ExecutionProviderDevice.Cpu];
-            }
-
-            var cost = rate * (decimal)duration.TotalSeconds;
-            return Math.Round(cost, 4, MidpointRounding.AwayFromZero);
         }
 
         private static HttpClient CreateDefaultHttpClient()
