@@ -14,46 +14,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
     /// </summary>
     public class OnnxParsingService
     {
-        /// <summary>
-        /// Parses an ONNX model file and returns its structure
-        /// </summary>
-        public async Task<OnnxModelStructure> ParseOnnxModelAsync(
-            byte[] modelData,
-            CancellationToken cancellationToken = default)
-        {
-            if (modelData is null || modelData.Length == 0)
-            {
-                throw new ArgumentException("Model data cannot be null or empty.", nameof(modelData));
-            }
-
-            try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                return await Task.Run(() =>
-                 {
-                     var model = ParseModelProto(modelData);
-                     return new OnnxModelStructure(
-                         ModelInfo: ExtractModelMetadata(model),
-                         Graph: ExtractGraphInformation(model),
-                         TotalWeightCount: CountTotalWeights(model),
-                         RawModel: model
-                     );
-                 }, cancellationToken);
-
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OnnxParsingService] Failed to parse ONNX model: {ex}");
-                throw new InvalidOperationException("Failed to parse ONNX model file.", ex);
-            }
-        }
-
-        private static Onnx.ModelProto ParseModelProto(byte[] data)
+        public Onnx.ModelProto Deserialize(byte[] data)
         {
             try
             {
@@ -65,157 +26,19 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
         }
 
-        private static OnnxModelInfo ExtractModelMetadata(Onnx.ModelProto model)
+        public byte[] Serialize(Onnx.ModelProto model)
         {
-            var opsetImports = model.OpsetImport
-                .Select(opset => new OnnxOpsetInfo(opset.Domain ?? string.Empty, opset.Version))
-                .ToList();
-
-            var metadataProps = model.MetadataProps
-                .ToDictionary(prop => prop.Key, prop => prop.Value);
-
-            return new OnnxModelInfo(
-                DocString: model.DocString ?? string.Empty,
-                OpsetImports: opsetImports,
-                MetadataProps: metadataProps,
-                ModelVersion: model.ModelVersion,
-                FunctionCount: model.Functions.Count,
-                TrainingInfoCount: model.TrainingInfo.Count
-            );
+            try
+            {
+                return model.ToByteArray();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to serialize ONNX model to protobuf format.", ex);
+            }
         }
 
-        private static OnnxGraphStructure ExtractGraphInformation(Onnx.ModelProto model)
-        {
-            if (model.Graph is null)
-            {
-                throw new InvalidOperationException("ONNX model does not contain a graph.");
-            }
-
-            var graph = model.Graph;
-            var operators = new List<OnnxOperatorInfo>();
-
-            // Extract operator information from nodes
-            foreach (var node in graph.Node)
-            {
-                var inputs = node.Input.ToList();
-                var outputs = node.Output.ToList();
-                var attributes = ExtractAttributes(node.Attribute);
-
-                operators.Add(new OnnxOperatorInfo(
-                    Name: node.Name ?? $"node_{operators.Count}",
-                    OpType: node.OpType,
-                    Domain: node.Domain ?? string.Empty,
-                    Inputs: inputs,
-                    Outputs: outputs,
-                    Attributes: attributes,
-                    DocString: node.DocString ?? string.Empty
-                ));
-            }
-
-            // Extract input information
-            var graphInputs = graph.Input
-                .Select(input => new OnnxValueInfo(
-                    Name: input.Name,
-                    DocString: input.DocString ?? string.Empty,
-                    TypeInfo: ExtractTypeInfo(input.Type)
-                ))
-                .ToList();
-
-            // Extract output information
-            var graphOutputs = graph.Output
-                .Select(output => new OnnxValueInfo(
-                    Name: output.Name,
-                    DocString: output.DocString ?? string.Empty,
-                    TypeInfo: ExtractTypeInfo(output.Type)
-                ))
-                .ToList();
-
-            // Extract initializer information
-            var initializers = graph.Initializer
-                .Select(init => new OnnxTensorInfo(
-                    Name: init.Name,
-                    DataType: init.DataType.ToString(),
-                    Dims: init.Dims.ToList(),
-                    ElementCount: CalculateElementCount(init.Dims)
-                ))
-                .ToList();
-
-            return new OnnxGraphStructure(
-                Name: graph.Name,
-                DocString: graph.DocString ?? string.Empty,
-                Operators: operators,
-                Inputs: graphInputs,
-                Outputs: graphOutputs,
-                Initializers: initializers,
-                ValueInfos: graph.ValueInfo.Count
-            );
-        }
-
-        private static Dictionary<string, string> ExtractAttributes(Google.Protobuf.Collections.RepeatedField<Onnx.AttributeProto> attributes)
-        {
-            var result = new Dictionary<string, string>();
-
-            foreach (var attr in attributes)
-            {
-                var value = attr.Type switch
-                {
-                    Onnx.AttributeProto.Types.AttributeType.Float => attr.F.ToString(),
-                    Onnx.AttributeProto.Types.AttributeType.Int => attr.I.ToString(),
-                    Onnx.AttributeProto.Types.AttributeType.String => System.Text.Encoding.UTF8.GetString(attr.S.ToByteArray()),
-                    Onnx.AttributeProto.Types.AttributeType.Floats => $"[{string.Join(", ", attr.Floats)}]",
-                    Onnx.AttributeProto.Types.AttributeType.Ints => $"[{string.Join(", ", attr.Ints)}]",
-                    Onnx.AttributeProto.Types.AttributeType.Strings => $"[{string.Join(", ", attr.Strings.Select(s => System.Text.Encoding.UTF8.GetString(s.ToByteArray())))}]",
-                    Onnx.AttributeProto.Types.AttributeType.Tensor => "TensorAttribute",
-                    Onnx.AttributeProto.Types.AttributeType.Graph => "GraphAttribute",
-                    _ => attr.Type.ToString()
-                };
-
-                result[attr.Name] = value;
-            }
-
-            return result;
-        }
-
-        private static string ExtractTypeInfo(Onnx.TypeProto? typeProto)
-        {
-            if (typeProto is null)
-            {
-                return "unknown";
-            }
-
-            return typeProto.ValueCase switch
-            {
-                Onnx.TypeProto.ValueOneofCase.TensorType => ExtractTensorTypeInfo(typeProto.TensorType),
-                Onnx.TypeProto.ValueOneofCase.SequenceType => "sequence",
-                Onnx.TypeProto.ValueOneofCase.MapType => "map",
-                Onnx.TypeProto.ValueOneofCase.OptionalType => "optional",
-                Onnx.TypeProto.ValueOneofCase.SparseTensorType => "sparse_tensor",
-                _ => "unknown"
-            };
-        }
-
-        private static string ExtractTensorTypeInfo(Onnx.TypeProto.Types.Tensor tensorType)
-        {
-            var elemType = tensorType.ElemType.ToString();
-
-            if (tensorType.Shape?.Dim != null && tensorType.Shape.Dim.Count > 0)
-            {
-                var dims = tensorType.Shape.Dim
-                    .Select(dim => dim.ValueCase switch
-                    {
-                        Onnx.TensorShapeProto.Types.Dimension.ValueOneofCase.DimValue => dim.DimValue.ToString(),
-                        Onnx.TensorShapeProto.Types.Dimension.ValueOneofCase.DimParam => dim.DimParam,
-                        _ => "?"
-                    })
-                    .ToList();
-
-                return $"tensor<{elemType}>[{string.Join(", ", dims)}]";
-            }
-
-            return $"tensor<{elemType}>";
-        }
-
-        private static long CountTotalWeights(Onnx.ModelProto model)
+        public long GetTotalWeightsCount(Onnx.ModelProto model)
         {
             if (model.Graph is null)
             {
@@ -224,13 +47,11 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             long totalCount = 0;
 
-            // Count weights from initializers
             foreach (var initializer in model.Graph.Initializer)
             {
                 totalCount += CalculateElementCount(initializer.Dims);
             }
 
-            // Count weights from sparse tensors if any
             foreach (var sparseInit in model.Graph.SparseInitializer)
             {
                 if (sparseInit.Values != null)
@@ -261,84 +82,309 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             return count;
         }
+
+        /// <summary>
+        /// Creates a sub-model from the original model based on a partition node
+        /// </summary>
+        /// <param name="originalModel">The original ONNX model</param>
+        /// <param name="partition">The partition node defining the sub-model boundaries</param>
+        /// <returns>A new ModelProto representing the sub-model</returns>
+        public Onnx.ModelProto CreateSubModel(Onnx.ModelProto originalModel, PartitionNode partition)
+        {
+            if (originalModel == null)
+            {
+                throw new ArgumentNullException(nameof(originalModel));
+            }
+
+            if (partition == null)
+            {
+                throw new ArgumentNullException(nameof(partition));
+            }
+
+            if (originalModel.Graph == null)
+            {
+                throw new InvalidOperationException("Original model graph is null");
+            }
+
+            // Create a new model proto
+            var subModel = new Onnx.ModelProto
+            {
+                IrVersion = originalModel.IrVersion,
+                ProducerName = originalModel.ProducerName,
+                ProducerVersion = originalModel.ProducerVersion,
+                Domain = originalModel.Domain,
+                ModelVersion = originalModel.ModelVersion,
+                DocString = $"Sub-model partition {partition.Id}"
+            };
+
+            // Copy opset imports
+            foreach (var opset in originalModel.OpsetImport)
+            {
+                subModel.OpsetImport.Add(opset);
+            }
+
+            // Copy metadata
+            foreach (var metadata in originalModel.MetadataProps)
+            {
+                subModel.MetadataProps.Add(metadata);
+            }
+
+            // Create the sub-graph
+            var subGraph = new Onnx.GraphProto
+            {
+                Name = $"{originalModel.Graph.Name}_partition_{partition.Id}"
+            };
+
+            // Extract nodes from the partition range
+            var extractedNodes = ExtractNodes(originalModel.Graph, partition.StartNodeIndex, partition.EndNodeIndex);
+            foreach (var node in extractedNodes)
+            {
+                subGraph.Node.Add(node);
+            }
+
+            // Collect all tensor names used by extracted nodes
+            var usedTensorNames = CollectUsedTensorNames(extractedNodes);
+
+            // Add required initializers (weights)
+            var requiredInitializers = CollectRequiredInitializers(originalModel.Graph, usedTensorNames);
+            foreach (var initializer in requiredInitializers)
+            {
+                subGraph.Initializer.Add(initializer);
+            }
+
+            // Add required sparse initializers
+            var requiredSparseInitializers = CollectRequiredSparseInitializers(originalModel.Graph, usedTensorNames);
+            foreach (var sparseInit in requiredSparseInitializers)
+            {
+                subGraph.SparseInitializer.Add(sparseInit);
+            }
+
+            // Create inputs for the sub-model
+            var inputs = CreateSubModelInputs(originalModel.Graph, partition.InputNames, usedTensorNames);
+            foreach (var input in inputs)
+            {
+                subGraph.Input.Add(input);
+            }
+
+            // Create outputs for the sub-model
+            var outputs = CreateSubModelOutputs(originalModel.Graph, partition.OutputNames, usedTensorNames);
+            foreach (var output in outputs)
+            {
+                subGraph.Output.Add(output);
+            }
+
+            // Copy relevant value info (intermediate tensors)
+            var valueInfos = CollectRelevantValueInfo(originalModel.Graph, usedTensorNames, partition.InputNames, partition.OutputNames);
+            foreach (var valueInfo in valueInfos)
+            {
+                subGraph.ValueInfo.Add(valueInfo);
+            }
+
+            subModel.Graph = subGraph;
+            return subModel;
+        }
+
+        /// <summary>
+        /// Extracts nodes from the graph within the specified range
+        /// </summary>
+        private List<Onnx.NodeProto> ExtractNodes(Onnx.GraphProto graph, int startIndex, int endIndex)
+        {
+            var nodes = new List<Onnx.NodeProto>();
+            
+            for (int i = startIndex; i < endIndex && i < graph.Node.Count; i++)
+            {
+                nodes.Add(graph.Node[i].Clone());
+            }
+
+            return nodes;
+        }
+
+        /// <summary>
+        /// Collects all tensor names used by the given nodes
+        /// </summary>
+        private HashSet<string> CollectUsedTensorNames(List<Onnx.NodeProto> nodes)
+        {
+            var tensorNames = new HashSet<string>();
+
+            foreach (var node in nodes)
+            {
+                foreach (var input in node.Input)
+                {
+                    if (!string.IsNullOrEmpty(input))
+                    {
+                        tensorNames.Add(input);
+                    }
+                }
+
+                foreach (var output in node.Output)
+                {
+                    if (!string.IsNullOrEmpty(output))
+                    {
+                        tensorNames.Add(output);
+                    }
+                }
+            }
+
+            return tensorNames;
+        }
+
+        /// <summary>
+        /// Collects initializers that are required by the sub-model
+        /// </summary>
+        private List<Onnx.TensorProto> CollectRequiredInitializers(Onnx.GraphProto graph, HashSet<string> usedTensorNames)
+        {
+            var initializers = new List<Onnx.TensorProto>();
+
+            foreach (var initializer in graph.Initializer)
+            {
+                if (usedTensorNames.Contains(initializer.Name))
+                {
+                    initializers.Add(initializer.Clone());
+                }
+            }
+
+            return initializers;
+        }
+
+        /// <summary>
+        /// Collects sparse initializers that are required by the sub-model
+        /// </summary>
+        private List<Onnx.SparseTensorProto> CollectRequiredSparseInitializers(Onnx.GraphProto graph, HashSet<string> usedTensorNames)
+        {
+            var sparseInitializers = new List<Onnx.SparseTensorProto>();
+
+            foreach (var sparseInit in graph.SparseInitializer)
+            {
+                if (usedTensorNames.Contains(sparseInit.Values?.Name))
+                {
+                    sparseInitializers.Add(sparseInit.Clone());
+                }
+            }
+
+            return sparseInitializers;
+        }
+
+        /// <summary>
+        /// Creates input ValueInfoProto entries for the sub-model
+        /// </summary>
+        private List<Onnx.ValueInfoProto> CreateSubModelInputs(
+            Onnx.GraphProto originalGraph,
+            List<string> inputNames,
+            HashSet<string> usedTensorNames)
+        {
+            var inputs = new List<Onnx.ValueInfoProto>();
+            var initializerNames = new HashSet<string>(originalGraph.Initializer.Select(i => i.Name));
+
+            foreach (var inputName in inputNames)
+            {
+                // Skip if this is an initializer (weights are not inputs)
+                if (initializerNames.Contains(inputName))
+                {
+                    continue;
+                }
+
+                // Try to find in original graph inputs
+                var originalInput = originalGraph.Input.FirstOrDefault(i => i.Name == inputName);
+                if (originalInput != null)
+                {
+                    inputs.Add(originalInput.Clone());
+                    continue;
+                }
+
+                // Try to find in value info (intermediate tensors)
+                var valueInfo = originalGraph.ValueInfo.FirstOrDefault(v => v.Name == inputName);
+                if (valueInfo != null)
+                {
+                    inputs.Add(valueInfo.Clone());
+                    continue;
+                }
+
+                // If not found, create a basic input entry
+                var newInput = new Onnx.ValueInfoProto
+                {
+                    Name = inputName,
+                    Type = new Onnx.TypeProto
+                    {
+                        TensorType = new Onnx.TypeProto.Types.Tensor
+                        {
+                            ElemType = 1 // Default to FLOAT
+                        }
+                    }
+                };
+                inputs.Add(newInput);
+            }
+
+            return inputs;
+        }
+
+        /// <summary>
+        /// Creates output ValueInfoProto entries for the sub-model
+        /// </summary>
+        private List<Onnx.ValueInfoProto> CreateSubModelOutputs(
+            Onnx.GraphProto originalGraph,
+            List<string> outputNames,
+            HashSet<string> usedTensorNames)
+        {
+            var outputs = new List<Onnx.ValueInfoProto>();
+
+            foreach (var outputName in outputNames)
+            {
+                // Try to find in original graph outputs
+                var originalOutput = originalGraph.Output.FirstOrDefault(o => o.Name == outputName);
+                if (originalOutput != null)
+                {
+                    outputs.Add(originalOutput.Clone());
+                    continue;
+                }
+
+                // Try to find in value info (intermediate tensors)
+                var valueInfo = originalGraph.ValueInfo.FirstOrDefault(v => v.Name == outputName);
+                if (valueInfo != null)
+                {
+                    outputs.Add(valueInfo.Clone());
+                    continue;
+                }
+
+                // If not found, create a basic output entry
+                var newOutput = new Onnx.ValueInfoProto
+                {
+                    Name = outputName,
+                    Type = new Onnx.TypeProto
+                    {
+                        TensorType = new Onnx.TypeProto.Types.Tensor
+                        {
+                            ElemType = 1 // Default to FLOAT
+                        }
+                    }
+                };
+                outputs.Add(newOutput);
+            }
+
+            return outputs;
+        }
+
+        /// <summary>
+        /// Collects relevant value info entries for intermediate tensors
+        /// </summary>
+        private List<Onnx.ValueInfoProto> CollectRelevantValueInfo(
+            Onnx.GraphProto originalGraph,
+            HashSet<string> usedTensorNames,
+            List<string> inputNames,
+            List<string> outputNames)
+        {
+            var valueInfos = new List<Onnx.ValueInfoProto>();
+            var inputOutputNames = new HashSet<string>(inputNames.Concat(outputNames));
+
+            foreach (var valueInfo in originalGraph.ValueInfo)
+            {
+                // Include if it's used by the sub-model and not already in inputs/outputs
+                if (usedTensorNames.Contains(valueInfo.Name) && !inputOutputNames.Contains(valueInfo.Name))
+                {
+                    valueInfos.Add(valueInfo.Clone());
+                }
+            }
+
+            return valueInfos;
+        }
     }
-
-    #region Model Structure Classes
-
-    /// <summary>
-    /// Represents the complete structure of an ONNX model
-    /// </summary>
-    public sealed record OnnxModelStructure(
-        OnnxModelInfo ModelInfo,
-        OnnxGraphStructure Graph,
-        Onnx.ModelProto RawModel,
-        long TotalWeightCount
-    );
-
-    /// <summary>
-    /// Model-level metadata information
-    /// </summary>
-    public sealed record OnnxModelInfo(
-        string DocString,
-        IReadOnlyList<OnnxOpsetInfo> OpsetImports,
-        IReadOnlyDictionary<string, string> MetadataProps,
-        long ModelVersion,
-        int FunctionCount,
-        int TrainingInfoCount
-    );
-
-    /// <summary>
-    /// Operator set information
-    /// </summary>
-    public sealed record OnnxOpsetInfo(
-        string Domain,
-        long Version
-    );
-
-    /// <summary>
-    /// Graph structure information
-    /// </summary>
-    public sealed record OnnxGraphStructure(
-        string Name,
-        string DocString,
-        IReadOnlyList<OnnxOperatorInfo> Operators,
-        IReadOnlyList<OnnxValueInfo> Inputs,
-        IReadOnlyList<OnnxValueInfo> Outputs,
-        IReadOnlyList<OnnxTensorInfo> Initializers,
-        int ValueInfos
-    );
-
-    /// <summary>
-    /// Information about a graph operator/node
-    /// </summary>
-    public sealed record OnnxOperatorInfo(
-        string Name,
-        string OpType,
-        string Domain,
-        IReadOnlyList<string> Inputs,
-        IReadOnlyList<string> Outputs,
-        IReadOnlyDictionary<string, string> Attributes,
-        string DocString
-    );
-
-    /// <summary>
-    /// Value information (inputs/outputs)
-    /// </summary>
-    public sealed record OnnxValueInfo(
-        string Name,
-        string DocString,
-        string TypeInfo
-    );
-
-    /// <summary>
-    /// Tensor/initializer information
-    /// </summary>
-    public sealed record OnnxTensorInfo(
-        string Name,
-        string DataType,
-        IReadOnlyList<long> Dims,
-        long ElementCount
-    );
-
-    #endregion
 }

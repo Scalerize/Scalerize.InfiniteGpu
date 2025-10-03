@@ -27,6 +27,7 @@ public class TaskHub : Hub
     private static readonly ConcurrentDictionary<string, string> ConnectionToProviderMap = new();
     private static readonly ConcurrentDictionary<string, Guid> ConnectionToDeviceMap = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> DeviceConnections = new();
+    private static readonly ConcurrentDictionary<Guid, long> DeviceRamBytes = new();
 
     public const string ProvidersGroupName = "Providers";
     public const string OnSubtaskAcceptedEvent = "OnSubtaskAccepted";
@@ -162,7 +163,7 @@ public class TaskHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task JoinAvailableTasks(string userId, string role)
+    public async Task JoinAvailableTasks(string userId, string role, long? totalRamBytes = null)
     {
         var normalizedUserId = string.IsNullOrWhiteSpace(CurrentUserId) ? userId : CurrentUserId!;
 
@@ -177,6 +178,12 @@ public class TaskHub : Hub
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, ProviderGroupName(normalizedUserId));
             RegisterProviderConnection(normalizedUserId, Context.ConnectionId);
+
+            // Update device RAM in memory if provided
+            if (totalRamBytes.HasValue && ConnectionToDeviceMap.TryGetValue(Context.ConnectionId, out var deviceId))
+            {
+                DeviceRamBytes[deviceId] = totalRamBytes.Value;
+            }
         }
 
         await DispatchPendingSubtaskAsync(Context.ConnectionAborted);
@@ -750,10 +757,10 @@ public class TaskHub : Hub
         {
             return;
         }
+ 
+        var sortedProviderIds = GetProviderIdsSortedByRam(providerIds);
 
-        Random.Shared.Shuffle(providerIds);
-
-        foreach (var providerUserId in providerIds)
+        foreach (var providerUserId in sortedProviderIds)
         {
             var deviceId = GetPrimaryDeviceId(providerUserId);
             if (deviceId is null)
@@ -852,6 +859,8 @@ public class TaskHub : Hub
             if (deviceConnections.IsEmpty)
             {
                 DeviceConnections.TryRemove(deviceId, out _);
+                // Also remove RAM data when device fully disconnects
+                DeviceRamBytes.TryRemove(deviceId, out _);
             }
         }
 
@@ -979,6 +988,33 @@ public class TaskHub : Hub
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string[] GetProviderIdsSortedByRam(string[] providerIds)
+    {
+        var providerRamPairs = new List<(string ProviderId, long Ram)>();
+
+        foreach (var providerId in providerIds)
+        {
+            var deviceId = GetPrimaryDeviceId(providerId);
+            if (deviceId is null)
+            {
+                providerRamPairs.Add((providerId, 0));
+                continue;
+            }
+
+            // Get RAM from in-memory storage
+            var ram = DeviceRamBytes.TryGetValue(deviceId.Value, out var ramBytes) ? ramBytes : 0;
+            providerRamPairs.Add((providerId, ram));
+        }
+
+        // Sort by RAM descending (highest RAM first)
+        var sortedProviderIds = providerRamPairs
+            .OrderByDescending(pair => pair.Ram)
+            .Select(pair => pair.ProviderId)
+            .ToArray();
+
+        return sortedProviderIds;
     }
 
     public static TaskDto BuildTaskDto(Data.Entities.Task task)

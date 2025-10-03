@@ -34,6 +34,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private readonly DeviceIdentifierService _deviceIdentifierService;
         private readonly OnnxRuntimeService _onnxRuntimeService;
         private readonly OnnxParsingService _onnxParsingService;
+        private readonly OnnxPartitionerService _onnxPartitionerService;
         private readonly HttpClient _httpClient;
         private readonly bool _ownsHttpClient;
         private readonly InputParsingService _inputParsingService;
@@ -55,7 +56,8 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         HttpClient httpClient,
          InputParsingService inputParsingService,
           OutputParsingService outputParsingService,
-          OnnxParsingService onnxParsingService)
+          OnnxParsingService onnxParsingService,
+          OnnxPartitionerService onnxPartitionerService)
         {
             _deviceIdentifierService = deviceIdentifierService ?? throw new ArgumentNullException(nameof(deviceIdentifierService));
             _onnxRuntimeService = onnxRuntimeService ?? throw new ArgumentNullException(nameof(onnxRuntimeService));
@@ -63,6 +65,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             _outputParsingService = outputParsingService ?? throw new ArgumentNullException(nameof(outputParsingService));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _onnxParsingService = onnxParsingService ?? throw new ArgumentNullException(nameof(onnxParsingService));
+            _onnxPartitionerService = onnxPartitionerService ?? throw new ArgumentNullException(nameof(onnxPartitionerService));
         }
 
         public void Start()
@@ -377,6 +380,13 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
                 var inputs = await _inputParsingService.BuildNamedInputsAsync(
                     subtask.ParametersJson, cancellationToken);
+
+                var model = _onnxParsingService.Deserialize(modelBytes);
+
+
+                var partitions = _onnxPartitionerService.PartitionModel(model, inputs);
+
+                var partitionnedModels = _onnxParsingService.CreateSubModel(model, partitions.RootNodes.First());
 
                 var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(
                     modelBytes, inputs, cancellationToken);
