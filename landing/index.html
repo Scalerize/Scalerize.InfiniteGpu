@@ -18,8 +18,7 @@
   <meta name="twitter:title" content="InfiniteGPU - Cloud Computing Marketplace for AI Inference" />
   <meta name="twitter:description"
     content="Access unlimited computing power for AI inference with flexible pricing and multiple format support." />
-  <link rel="icon" type="image/png"
-    href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAArklEQVR4Xu3aQQ6CQBBFwXH3I9mk1lJYibFXYB6UpZkY1qvvcZktyNN4mnN8PCQgAAAK5p4ao6rdmAVw4A2X0ugOq2Zd9K6fyKexp0TgmZoCFP9t4gMhhFXF3CAFIUtCCHGAFEUhC0IIcYAUhS0IIcYAURSELQghxkGSp6Czps+ARAn3bbrwRogbd77AIm39uYFrf7fWxtm9DuI6FzkF8gNmWSf5D5AAACe4AVRqXNn32nrpgAAAABJRU5ErkJggg==" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -475,7 +474,7 @@
                 d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                 clip-rule="evenodd" />
             </svg>
-            Windows 10/11
+            Windows 11
           </span>
         </div>
       </div>
@@ -581,9 +580,38 @@
         <p class="mx-auto mt-4 max-w-2xl text-base text-indigo-100">
           Join thousands of developers leveraging unlimited compute for their AI inference workloads.
         </p>
+        
+        <!-- Subscribe Form -->
+        <div class="mx-auto mt-10 max-w-md">
+          <form id="subscribeForm" class="space-y-4">
+            <div class="flex flex-col sm:flex-row gap-3">
+              <input
+                type="email"
+                id="emailInput"
+                name="email"
+                required
+                placeholder="Enter your email"
+                class="flex-1 rounded-full bg-white/10 border border-white/20 px-6 py-3 text-sm text-white placeholder-indigo-300 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 transition"
+              />
+              <button
+                type="submit"
+                class="rounded-full bg-white px-8 py-3 text-sm font-semibold text-slate-925 shadow-lg shadow-white/40 transition hover:-translate-y-0.5 hover:shadow-xl whitespace-nowrap"
+              >
+                Subscribe
+              </button>
+            </div>
+            <div id="subscribeMessage" class="text-sm font-medium text-emerald-300 hidden">
+              Successfully subscribed
+            </div>
+            <div id="subscribeError" class="text-sm font-medium text-red-300 hidden">
+              An error occurred. Please try again.
+            </div>
+          </form>
+        </div>
+        
         <div class="mx-auto mt-8 flex justify-center">
           <a href="#download"
-            class="h-12 flex items-center justify-center rounded-full bg-white px-8 text-sm font-semibold text-slate-925 shadow-lg shadow-white/40 transition hover:-translate-y-0.5 hover:shadow-xl">
+            class="h-12 flex items-center justify-center rounded-full bg-white/20 border border-white/30 px-8 text-sm font-semibold text-white shadow-lg hover:bg-white/30 transition hover:-translate-y-0.5 hover:shadow-xl">
             Download Now
           </a>
         </div>
@@ -606,6 +634,48 @@
 
   <script>
     document.getElementById("year").textContent = new Date().getFullYear();
+
+    // Subscribe form handler
+    document.getElementById("subscribeForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      
+      const emailInput = document.getElementById("emailInput");
+      const submitButton = this.querySelector('button[type="submit"]');
+      const successMessage = document.getElementById("subscribeMessage");
+      const errorMessage = document.getElementById("subscribeError");
+      
+      // Hide messages
+      successMessage.classList.add("hidden");
+      errorMessage.classList.add("hidden");
+      
+      // Disable button during submission
+      submitButton.disabled = true;
+      submitButton.textContent = "Subscribing...";
+      
+      try {
+        const response = await fetch("https://www.scalerize.fr/webhook/4a16a7cc-7700-4c7b-9e06-d9dd566439c2", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: emailInput.value
+          })
+        });
+        
+        if (response.ok) {
+          successMessage.classList.remove("hidden");
+          emailInput.value = "";
+        } else {
+          errorMessage.classList.remove("hidden");
+        }
+      } catch (error) {
+        errorMessage.classList.remove("hidden");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Subscribe";
+      }
+    });
   </script>
 </body>
 
