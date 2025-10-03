@@ -40,10 +40,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Include="obj\**\Proto\*.cs" />
-	</ItemGroup>
-
-	<ItemGroup>
 	  <Content Include="Assets\ErrorPage.html">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Content>

@@ -1,0 +1,257 @@
+// ONNX Protobuf Definition - Simplified for parsing
+// Based on ONNX IR Specification
+syntax = "proto3";
+
+package onnx;
+
+option csharp_namespace = "Onnx";
+
+// Version of the IR this protocol buffers message is written in
+enum Version {
+  _START_VERSION = 0;
+  IR_VERSION_2017_10_10 = 1;
+  IR_VERSION_2017_10_30 = 2;
+  IR_VERSION_2017_11_3 = 3;
+  IR_VERSION_2019_1_22 = 4;
+  IR_VERSION_2019_3_18 = 5;
+  IR_VERSION_2019_9_19 = 6;
+  IR_VERSION_2020_5_8 = 7;
+  IR_VERSION_2021_7_30 = 8;
+  IR_VERSION_2023_5_5 = 9;
+  IR_VERSION_2024_3_26 = 10;
+  IR_VERSION = 11;
+}
+
+// Attributes
+message AttributeProto {
+  enum AttributeType {
+    UNDEFINED = 0;
+    FLOAT = 1;
+    INT = 2;
+    STRING = 3;
+    TENSOR = 4;
+    GRAPH = 5;
+    SPARSE_TENSOR = 11;
+    TYPE_PROTO = 13;
+    FLOATS = 6;
+    INTS = 7;
+    STRINGS = 8;
+    TENSORS = 9;
+    GRAPHS = 10;
+    SPARSE_TENSORS = 12;
+    TYPE_PROTOS = 14;
+  }
+
+  string name = 1;
+  string ref_attr_name = 21;
+  string doc_string = 13;
+  AttributeType type = 20;
+  float f = 2;
+  int64 i = 3;
+  bytes s = 4;
+  TensorProto t = 5;
+  GraphProto g = 6;
+  SparseTensorProto sparse_tensor = 22;
+  TypeProto tp = 14;
+
+  repeated float floats = 7;
+  repeated int64 ints = 8;
+  repeated bytes strings = 9;
+  repeated TensorProto tensors = 10;
+  repeated GraphProto graphs = 11;
+  repeated SparseTensorProto sparse_tensors = 23;
+  repeated TypeProto type_protos = 15;
+}
+
+// Value information
+message ValueInfoProto {
+  string name = 1;
+  TypeProto type = 2;
+  string doc_string = 3;
+}
+
+// Nodes
+message NodeProto {
+  repeated string input = 1;
+  repeated string output = 2;
+  string name = 3;
+  string op_type = 4;
+  string domain = 7;
+  repeated AttributeProto attribute = 5;
+  string doc_string = 6;
+}
+
+// Models
+message ModelProto {
+  int64 ir_version = 1;
+  repeated OperatorSetIdProto opset_import = 8;
+  string producer_name = 2;
+  string producer_version = 3;
+  string domain = 4;
+  int64 model_version = 5;
+  string doc_string = 6;
+  GraphProto graph = 7;
+  repeated StringStringEntryProto metadata_props = 14;
+  repeated TrainingInfoProto training_info = 20;
+  repeated FunctionProto functions = 25;
+}
+
+// Graphs
+message GraphProto {
+  repeated NodeProto node = 1;
+  string name = 2;
+  repeated TensorProto initializer = 5;
+  repeated SparseTensorProto sparse_initializer = 15;
+  string doc_string = 10;
+  repeated ValueInfoProto input = 11;
+  repeated ValueInfoProto output = 12;
+  repeated ValueInfoProto value_info = 13;
+}
+
+// Tensors
+message TensorProto {
+  enum DataType {
+    UNDEFINED = 0;
+    FLOAT = 1;
+    UINT8 = 2;
+    INT8 = 3;
+    UINT16 = 4;
+    INT16 = 5;
+    INT32 = 6;
+    INT64 = 7;
+    STRING = 8;
+    BOOL = 9;
+    FLOAT16 = 10;
+    DOUBLE = 11;
+    UINT32 = 12;
+    UINT64 = 13;
+    COMPLEX64 = 14;
+    COMPLEX128 = 15;
+    BFLOAT16 = 16;
+    FLOAT8E4M3FN = 17;
+    FLOAT8E4M3FNUZ = 18;
+    FLOAT8E5M2 = 19;
+    FLOAT8E5M2FNUZ = 20;
+    UINT4 = 21;
+    INT4 = 22;
+    FLOAT4E2M1 = 23;
+    FLOAT8E8M0 = 24;
+  }
+
+  repeated int64 dims = 1;
+  int32 data_type = 2;
+  
+  message Segment {
+    int64 begin = 1;
+    int64 end = 2;
+  }
+  Segment segment = 3;
+
+  repeated float float_data = 4 [packed = true];
+  repeated int32 int32_data = 5 [packed = true];
+  repeated bytes string_data = 6;
+  repeated int64 int64_data = 7 [packed = true];
+  string name = 8;
+  string doc_string = 12;
+  bytes raw_data = 9;
+  repeated StringStringEntryProto external_data = 13;
+  DataLocation data_location = 14;
+  repeated double double_data = 10 [packed = true];
+  repeated uint64 uint64_data = 11 [packed = true];
+
+  enum DataLocation {
+    DEFAULT = 0;
+    EXTERNAL = 1;
+  }
+}
+
+// Sparse Tensors
+message SparseTensorProto {
+  TensorProto values = 1;
+  TensorProto indices = 2;
+  repeated int64 dims = 3;
+}
+
+// Type system
+message TypeProto {
+  message Tensor {
+    int32 elem_type = 1;
+    TensorShapeProto shape = 2;
+  }
+
+  message Sequence {
+    TypeProto elem_type = 1;
+  }
+
+  message Map {
+    int32 key_type = 1;
+    TypeProto value_type = 2;
+  }
+
+  message Optional {
+    TypeProto elem_type = 1;
+  }
+
+  message SparseTensor {
+    int32 elem_type = 1;
+    TensorShapeProto shape = 2;
+  }
+
+  oneof value {
+    Tensor tensor_type = 1;
+    Sequence sequence_type = 4;
+    Map map_type = 5;
+    Optional optional_type = 9;
+    SparseTensor sparse_tensor_type = 8;
+  }
+
+  string denotation = 6;
+}
+
+// Shapes
+message TensorShapeProto {
+  message Dimension {
+    oneof value {
+      int64 dim_value = 1;
+      string dim_param = 2;
+    }
+    string denotation = 3;
+  }
+  repeated Dimension dim = 1;
+}
+
+// Operator Sets
+message OperatorSetIdProto {
+  string domain = 1;
+  int64 version = 2;
+}
+
+// Functions
+message FunctionProto {
+  string name = 1;
+  repeated string input = 4;
+  repeated string output = 5;
+  repeated AttributeProto attribute = 6;
+  repeated AttributeProto attribute_proto = 11;
+  repeated NodeProto node = 7;
+  string doc_string = 8;
+  repeated OperatorSetIdProto opset_import = 9;
+  string domain = 10;
+  string overload = 12;
+  repeated ValueInfoProto value_info = 13;
+  repeated StringStringEntryProto metadata_props = 14;
+}
+
+// Training
+message TrainingInfoProto {
+  GraphProto initialization = 1;
+  GraphProto algorithm = 2;
+  repeated StringStringEntryProto initialization_binding = 3;
+  repeated StringStringEntryProto update_binding = 4;
+}
+
+// Utility
+message StringStringEntryProto {
+  string key = 1;
+  string value = 2;
+}

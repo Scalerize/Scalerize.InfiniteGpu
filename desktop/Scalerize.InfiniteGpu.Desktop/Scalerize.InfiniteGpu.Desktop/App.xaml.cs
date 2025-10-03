@@ -134,6 +134,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 
             services.AddSingleton(_ => CreateHttpClient());
             services.AddSingleton<OnnxRuntimeService>();
+            services.AddSingleton<OnnxParsingService>();
             services.AddSingleton<HardwareMetricsService>();
             services.AddSingleton<DeviceIdentifierService>();
             services.AddSingleton<WebViewCommunicationService>();
