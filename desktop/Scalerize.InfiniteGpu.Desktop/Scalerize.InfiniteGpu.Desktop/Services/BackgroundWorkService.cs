@@ -360,21 +360,27 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private async Task ProcessExecutionRequestAsync(ExecutionRequestedPayload payload, CancellationToken cancellationToken)
         {
             var subtask = payload.Subtask;
+            var authToken = Volatile.Read(ref _authToken);
+            if (authToken == null)
+                return;
+
             var connection = await WaitForActiveConnectionAsync(cancellationToken);
 
             await connection.InvokeAsync("AcknowledgeExecutionStart", subtask.Id, cancellationToken);
             await connection.InvokeAsync("ReportProgress", subtask.Id, 5, cancellationToken);
 
-            List<NamedOnnxValue>? inputs = null;
-
             try
             {
                 var stopwatch = Stopwatch.StartNew();
 
-                var modelBytes = await DownloadModelAsync(subtask, cancellationToken); 
-                inputs = await _inputParsingService.BuildNamedInputsAsync(subtask.ParametersJson, cancellationToken);
-                var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(modelBytes, inputs, cancellationToken);
-                var authToken = Volatile.Read(ref _authToken);
+                var modelBytes = await DownloadModelAsync(subtask, cancellationToken);
+
+                var inputs = await _inputParsingService.BuildNamedInputsAsync(
+                    subtask.ParametersJson, cancellationToken);
+
+                var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(
+                    modelBytes, inputs, cancellationToken);
+
                 var processedOutputs = await _outputParsingService.ProcessOutputsAsync(
                     subtask.TaskId,
                     subtask.Id,
@@ -383,7 +389,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     authToken,
                     cancellationToken);
 
-                stopwatch.Stop(); 
+                stopwatch.Stop();
 
                 var resultPayload = new
                 {
@@ -575,7 +581,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             uri = null;
             return false;
-        } 
+        }
 
         private static HttpClient CreateDefaultHttpClient()
         {
