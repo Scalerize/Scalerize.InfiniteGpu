@@ -26,13 +26,16 @@ public sealed class TaskUploadUrlService : ITaskUploadUrlService
 {
     private readonly BlobServiceClient _blobServiceClient;
     private readonly AzureStorageOptions _options;
+    private readonly IWebHostEnvironment _environment;
 
     public TaskUploadUrlService(
         BlobServiceClient blobServiceClient,
-        IOptions<AzureStorageOptions> options)
+        IOptions<AzureStorageOptions> options,
+        IWebHostEnvironment environment)
     {
         _blobServiceClient = blobServiceClient;
         _options = options.Value;
+        _environment = environment;
     }
 
     public async Task<TaskUploadUrlResult> GenerateUploadUrlAsync(
@@ -62,7 +65,8 @@ public sealed class TaskUploadUrlService : ITaskUploadUrlService
             ArgumentException.ThrowIfNullOrWhiteSpace(fileExtension);
         }
 
-        var containerClient = _blobServiceClient.GetBlobContainerClient(_options.InferenceContainerName);
+        var containerName = $"{_options.InferenceContainerName}-{_environment.EnvironmentName.ToLowerInvariant()}";
+        var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
         await containerClient.CreateIfNotExistsAsync(
             PublicAccessType.None,
             cancellationToken: cancellationToken);

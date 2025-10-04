@@ -37,52 +37,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 throw new InvalidOperationException("Failed to serialize ONNX model to protobuf format.", ex);
             }
         }
-
-        public long GetTotalWeightsCount(Onnx.ModelProto model)
-        {
-            if (model.Graph is null)
-            {
-                return 0;
-            }
-
-            long totalCount = 0;
-
-            foreach (var initializer in model.Graph.Initializer)
-            {
-                totalCount += CalculateElementCount(initializer.Dims);
-            }
-
-            foreach (var sparseInit in model.Graph.SparseInitializer)
-            {
-                if (sparseInit.Values != null)
-                {
-                    totalCount += CalculateElementCount(sparseInit.Values.Dims);
-                }
-            }
-
-            return totalCount;
-        }
-
-        private static long CalculateElementCount(Google.Protobuf.Collections.RepeatedField<long> dims)
-        {
-            if (dims is null || dims.Count == 0)
-            {
-                return 0;
-            }
-
-            long count = 1;
-            foreach (var dim in dims)
-            {
-                if (dim <= 0)
-                {
-                    return 0;
-                }
-                count *= dim;
-            }
-
-            return count;
-        }
-
+  
         /// <summary>
         /// Creates a sub-model from the original model based on a partition node
         /// </summary>
@@ -105,6 +60,8 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             {
                 throw new InvalidOperationException("Original model graph is null");
             }
+
+            var originalGraph = originalModel.Graph;
 
             // Create a new model proto
             var subModel = new Onnx.ModelProto
@@ -132,175 +89,89 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             // Create the sub-graph
             var subGraph = new Onnx.GraphProto
             {
-                Name = $"{originalModel.Graph.Name}_partition_{partition.Id}"
+                Name = $"{originalGraph.Name}_partition_{partition.Id}"
             };
 
-            // Extract nodes from the partition range
-            var extractedNodes = ExtractNodes(originalModel.Graph, partition.StartNodeIndex, partition.EndNodeIndex);
-            foreach (var node in extractedNodes)
+            // Extract nodes and collect used tensor names in one pass
+            int nodeCount = Math.Min(partition.EndNodeIndex, originalGraph.Node.Count) - partition.StartNodeIndex;
+            var usedTensorNames = new HashSet<string>(nodeCount * 4); // Estimate: ~4 tensors per node
+
+            for (int i = partition.StartNodeIndex; i < partition.EndNodeIndex && i < originalGraph.Node.Count; i++)
             {
-                subGraph.Node.Add(node);
-            }
+                var originalNode = originalGraph.Node[i];
+                var clonedNode = originalNode.Clone();
+                subGraph.Node.Add(clonedNode);
 
-            // Collect all tensor names used by extracted nodes
-            var usedTensorNames = CollectUsedTensorNames(extractedNodes);
-
-            // Add required initializers (weights)
-            var requiredInitializers = CollectRequiredInitializers(originalModel.Graph, usedTensorNames);
-            foreach (var initializer in requiredInitializers)
-            {
-                subGraph.Initializer.Add(initializer);
-            }
-
-            // Add required sparse initializers
-            var requiredSparseInitializers = CollectRequiredSparseInitializers(originalModel.Graph, usedTensorNames);
-            foreach (var sparseInit in requiredSparseInitializers)
-            {
-                subGraph.SparseInitializer.Add(sparseInit);
-            }
-
-            // Create inputs for the sub-model
-            var inputs = CreateSubModelInputs(originalModel.Graph, partition.InputNames, usedTensorNames);
-            foreach (var input in inputs)
-            {
-                subGraph.Input.Add(input);
-            }
-
-            // Create outputs for the sub-model
-            var outputs = CreateSubModelOutputs(originalModel.Graph, partition.OutputNames, usedTensorNames);
-            foreach (var output in outputs)
-            {
-                subGraph.Output.Add(output);
-            }
-
-            // Copy relevant value info (intermediate tensors)
-            var valueInfos = CollectRelevantValueInfo(originalModel.Graph, usedTensorNames, partition.InputNames, partition.OutputNames);
-            foreach (var valueInfo in valueInfos)
-            {
-                subGraph.ValueInfo.Add(valueInfo);
-            }
-
-            subModel.Graph = subGraph;
-            return subModel;
-        }
-
-        /// <summary>
-        /// Extracts nodes from the graph within the specified range
-        /// </summary>
-        private List<Onnx.NodeProto> ExtractNodes(Onnx.GraphProto graph, int startIndex, int endIndex)
-        {
-            var nodes = new List<Onnx.NodeProto>();
-            
-            for (int i = startIndex; i < endIndex && i < graph.Node.Count; i++)
-            {
-                nodes.Add(graph.Node[i].Clone());
-            }
-
-            return nodes;
-        }
-
-        /// <summary>
-        /// Collects all tensor names used by the given nodes
-        /// </summary>
-        private HashSet<string> CollectUsedTensorNames(List<Onnx.NodeProto> nodes)
-        {
-            var tensorNames = new HashSet<string>();
-
-            foreach (var node in nodes)
-            {
-                foreach (var input in node.Input)
+                // Collect tensor names while iterating
+                foreach (var input in originalNode.Input)
                 {
                     if (!string.IsNullOrEmpty(input))
                     {
-                        tensorNames.Add(input);
+                        usedTensorNames.Add(input);
                     }
                 }
 
-                foreach (var output in node.Output)
+                foreach (var output in originalNode.Output)
                 {
                     if (!string.IsNullOrEmpty(output))
                     {
-                        tensorNames.Add(output);
+                        usedTensorNames.Add(output);
                     }
                 }
             }
 
-            return tensorNames;
-        }
-
-        /// <summary>
-        /// Collects initializers that are required by the sub-model
-        /// </summary>
-        private List<Onnx.TensorProto> CollectRequiredInitializers(Onnx.GraphProto graph, HashSet<string> usedTensorNames)
-        {
-            var initializers = new List<Onnx.TensorProto>();
-
-            foreach (var initializer in graph.Initializer)
+            // Build initializer name lookup once
+            var initializerLookup = new Dictionary<string, Onnx.TensorProto>(originalGraph.Initializer.Count);
+            foreach (var initializer in originalGraph.Initializer)
             {
                 if (usedTensorNames.Contains(initializer.Name))
                 {
-                    initializers.Add(initializer.Clone());
+                    initializerLookup[initializer.Name] = initializer;
+                    subGraph.Initializer.Add(initializer.Clone());
                 }
             }
 
-            return initializers;
-        }
-
-        /// <summary>
-        /// Collects sparse initializers that are required by the sub-model
-        /// </summary>
-        private List<Onnx.SparseTensorProto> CollectRequiredSparseInitializers(Onnx.GraphProto graph, HashSet<string> usedTensorNames)
-        {
-            var sparseInitializers = new List<Onnx.SparseTensorProto>();
-
-            foreach (var sparseInit in graph.SparseInitializer)
+            // Add required sparse initializers
+            foreach (var sparseInit in originalGraph.SparseInitializer)
             {
-                if (usedTensorNames.Contains(sparseInit.Values?.Name))
+                var name = sparseInit.Values?.Name;
+                if (name != null && usedTensorNames.Contains(name))
                 {
-                    sparseInitializers.Add(sparseInit.Clone());
+                    subGraph.SparseInitializer.Add(sparseInit.Clone());
                 }
             }
 
-            return sparseInitializers;
-        }
+            // Build lookup dictionaries for inputs, outputs, and value info
+            var originalInputLookup = BuildValueInfoLookup(originalGraph.Input);
+            var originalOutputLookup = BuildValueInfoLookup(originalGraph.Output);
+            var valueInfoLookup = BuildValueInfoLookup(originalGraph.ValueInfo);
 
-        /// <summary>
-        /// Creates input ValueInfoProto entries for the sub-model
-        /// </summary>
-        private List<Onnx.ValueInfoProto> CreateSubModelInputs(
-            Onnx.GraphProto originalGraph,
-            List<string> inputNames,
-            HashSet<string> usedTensorNames)
-        {
-            var inputs = new List<Onnx.ValueInfoProto>();
-            var initializerNames = new HashSet<string>(originalGraph.Initializer.Select(i => i.Name));
-
-            foreach (var inputName in inputNames)
+            // Create inputs for the sub-model
+            var inputNameSet = new HashSet<string>(partition.InputNames);
+            foreach (var inputName in partition.InputNames)
             {
                 // Skip if this is an initializer (weights are not inputs)
-                if (initializerNames.Contains(inputName))
+                if (initializerLookup.ContainsKey(inputName))
                 {
                     continue;
                 }
 
                 // Try to find in original graph inputs
-                var originalInput = originalGraph.Input.FirstOrDefault(i => i.Name == inputName);
-                if (originalInput != null)
+                if (originalInputLookup.TryGetValue(inputName, out var originalInput))
                 {
-                    inputs.Add(originalInput.Clone());
+                    subGraph.Input.Add(originalInput.Clone());
                     continue;
                 }
 
                 // Try to find in value info (intermediate tensors)
-                var valueInfo = originalGraph.ValueInfo.FirstOrDefault(v => v.Name == inputName);
-                if (valueInfo != null)
+                if (valueInfoLookup.TryGetValue(inputName, out var valueInfo))
                 {
-                    inputs.Add(valueInfo.Clone());
+                    subGraph.Input.Add(valueInfo.Clone());
                     continue;
                 }
 
                 // If not found, create a basic input entry
-                var newInput = new Onnx.ValueInfoProto
+                subGraph.Input.Add(new Onnx.ValueInfoProto
                 {
                     Name = inputName,
                     Type = new Onnx.TypeProto
@@ -310,43 +181,29 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                             ElemType = 1 // Default to FLOAT
                         }
                     }
-                };
-                inputs.Add(newInput);
+                });
             }
 
-            return inputs;
-        }
-
-        /// <summary>
-        /// Creates output ValueInfoProto entries for the sub-model
-        /// </summary>
-        private List<Onnx.ValueInfoProto> CreateSubModelOutputs(
-            Onnx.GraphProto originalGraph,
-            List<string> outputNames,
-            HashSet<string> usedTensorNames)
-        {
-            var outputs = new List<Onnx.ValueInfoProto>();
-
-            foreach (var outputName in outputNames)
+            // Create outputs for the sub-model
+            var outputNameSet = new HashSet<string>(partition.OutputNames);
+            foreach (var outputName in partition.OutputNames)
             {
                 // Try to find in original graph outputs
-                var originalOutput = originalGraph.Output.FirstOrDefault(o => o.Name == outputName);
-                if (originalOutput != null)
+                if (originalOutputLookup.TryGetValue(outputName, out var originalOutput))
                 {
-                    outputs.Add(originalOutput.Clone());
+                    subGraph.Output.Add(originalOutput.Clone());
                     continue;
                 }
 
                 // Try to find in value info (intermediate tensors)
-                var valueInfo = originalGraph.ValueInfo.FirstOrDefault(v => v.Name == outputName);
-                if (valueInfo != null)
+                if (valueInfoLookup.TryGetValue(outputName, out var valueInfo))
                 {
-                    outputs.Add(valueInfo.Clone());
+                    subGraph.Output.Add(valueInfo.Clone());
                     continue;
                 }
 
                 // If not found, create a basic output entry
-                var newOutput = new Onnx.ValueInfoProto
+                subGraph.Output.Add(new Onnx.ValueInfoProto
                 {
                     Name = outputName,
                     Type = new Onnx.TypeProto
@@ -356,35 +213,37 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                             ElemType = 1 // Default to FLOAT
                         }
                     }
-                };
-                outputs.Add(newOutput);
+                });
             }
 
-            return outputs;
-        }
-
-        /// <summary>
-        /// Collects relevant value info entries for intermediate tensors
-        /// </summary>
-        private List<Onnx.ValueInfoProto> CollectRelevantValueInfo(
-            Onnx.GraphProto originalGraph,
-            HashSet<string> usedTensorNames,
-            List<string> inputNames,
-            List<string> outputNames)
-        {
-            var valueInfos = new List<Onnx.ValueInfoProto>();
-            var inputOutputNames = new HashSet<string>(inputNames.Concat(outputNames));
-
+            // Copy relevant value info (intermediate tensors)
             foreach (var valueInfo in originalGraph.ValueInfo)
             {
                 // Include if it's used by the sub-model and not already in inputs/outputs
-                if (usedTensorNames.Contains(valueInfo.Name) && !inputOutputNames.Contains(valueInfo.Name))
+                if (usedTensorNames.Contains(valueInfo.Name) &&
+                    !inputNameSet.Contains(valueInfo.Name) &&
+                    !outputNameSet.Contains(valueInfo.Name))
                 {
-                    valueInfos.Add(valueInfo.Clone());
+                    subGraph.ValueInfo.Add(valueInfo.Clone());
                 }
             }
 
-            return valueInfos;
+            subModel.Graph = subGraph;
+            return subModel;
+        }
+
+        /// <summary>
+        /// Builds a lookup dictionary for ValueInfoProto by name
+        /// </summary>
+        private Dictionary<string, Onnx.ValueInfoProto> BuildValueInfoLookup(
+            Google.Protobuf.Collections.RepeatedField<Onnx.ValueInfoProto> valueInfos)
+        {
+            var lookup = new Dictionary<string, Onnx.ValueInfoProto>(valueInfos.Count);
+            foreach (var valueInfo in valueInfos)
+            {
+                lookup[valueInfo.Name] = valueInfo;
+            }
+            return lookup;
         }
     }
 }
