@@ -247,10 +247,11 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         }
 
         /// <summary>
-        /// Extracts input and output tensor names from an ONNX model
+        /// Extracts global model input and output tensor names from an ONNX model.
+        /// Global inputs exclude initializers (weights/constants).
         /// </summary>
         /// <param name="model">The ONNX model to extract names from</param>
-        /// <returns>Object containing arrays of input and output names</returns>
+        /// <returns>Object containing arrays of global input and output names</returns>
         public object GetInputOutputNames(Onnx.ModelProto model)
         {
             if (model == null)
@@ -263,19 +264,29 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 throw new InvalidOperationException("Model graph is null");
             }
 
+            // Build set of initializer names to filter them out from inputs
+            var initializerNames = new HashSet<string>(model.Graph.Initializer.Count);
+            foreach (var initializer in model.Graph.Initializer)
+            {
+                if (!string.IsNullOrEmpty(initializer.Name))
+                {
+                    initializerNames.Add(initializer.Name);
+                }
+            }
+
             var inputNames = new List<string>();
             var outputNames = new List<string>();
 
-            // Extract input names
+            // Extract global input names (excluding initializers/weights)
             foreach (var input in model.Graph.Input)
             {
-                if (!string.IsNullOrEmpty(input.Name))
+                if (!string.IsNullOrEmpty(input.Name) && !initializerNames.Contains(input.Name))
                 {
                     inputNames.Add(input.Name);
                 }
             }
 
-            // Extract output names
+            // Extract global output names
             foreach (var output in model.Graph.Output)
             {
                 if (!string.IsNullOrEmpty(output.Name))

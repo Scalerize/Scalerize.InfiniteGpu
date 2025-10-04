@@ -11,6 +11,7 @@ using Microsoft.Web.WebView2.Core;
 using Scalerize.InfiniteGpu.Desktop.Constants;
 using Scalerize.InfiniteGpu.Desktop.Services;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -374,7 +375,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             _webViewBridge.RegisterEventHandler("frontend:requestRuntimeState", OnFrontendRequestRuntimeStateAsync);
             _webViewBridge.RegisterMethod("auth:setToken", OnAuthSentToken);
             _webViewBridge.RegisterMethod("runtime:getState", HandleRuntimeGetStateAsync);
-            _webViewBridge.RegisterMethod("runtime:parseOnnxModel", HandleRuntimeParseOnnxModelAsync);
+            _webViewBridge.RegisterMethodWithObjects("runtime:parseOnnxModel", HandleRuntimeParseOnnxModelAsync);
             _webViewBridge.RegisterMethod("app:getVersion", HandleAppGetVersionAsync);
             _webViewBridge.RegisterMethod("hardware:getMetrics", HandleHardwareGetMetricsAsync);
             _webViewBridge.RegisterMethod("device:getIdentifier", HandleDeviceGetIdentifierAsync);
@@ -408,18 +409,23 @@ namespace Scalerize.InfiniteGpu.Desktop
             return Task.FromResult<JsonNode?>(result);
         }
 
-        private Task<JsonNode?> HandleRuntimeParseOnnxModelAsync(JsonNode? payload)
+        private Task<JsonNode?> HandleRuntimeParseOnnxModelAsync(JsonNode? payload, IReadOnlyList<object> additionalObjects)
         {
-            if (payload is null || payload["filePath"] is null)
+            // Extract file from additional objects
+            string? filePath = null;
+            
+            foreach (var obj in additionalObjects)
             {
-                throw new ArgumentException("ONNX model file path is required");
+                if (obj is CoreWebView2File file && !string.IsNullOrEmpty(file.Path))
+                {
+                    filePath = file.Path;
+                    break;
+                }
             }
 
-            // Extract the file path from the payload
-            var filePath = payload["filePath"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(filePath))
             {
-                throw new ArgumentException("ONNX model file path cannot be empty");
+                throw new ArgumentException("ONNX model file is required. Please pass the file as an additional object.");
             }
 
             if (!File.Exists(filePath))

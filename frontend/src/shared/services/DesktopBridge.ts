@@ -158,12 +158,47 @@ export const DesktopBridge = {
     }
   },
 
-  async parseOnnxModel(filePath: string): Promise<OnnxModelParseResult> {
-    const result = await DesktopBridge.invoke<OnnxModelParseResult>('runtime:parseOnnxModel', {
-      filePath: filePath
-    });
+  async parseOnnxModel(file: File): Promise<OnnxModelParseResult> {
+    const bridge = getBridge();
+    if (!bridge) {
+      throw new Error('Desktop bridge is not available. Unable to parse ONNX model.');
+    }
 
-    return result;
+    // Use postMessageWithAdditionalObjects to send the File object
+    return new Promise((resolve, reject) => {
+      const requestId = Math.random().toString(36).slice(2);
+      const message = {
+        type: 'method',
+        name: 'runtime:parseOnnxModel',
+        requestId,
+        payload: { fileName: file.name, size: file.size }
+      };
+
+      // Set up response listener
+      const handleResponse = (event: any) => {
+        const data = event.data;
+        if (data?.type === 'methodResponse' && data?.requestId === requestId) {
+          window.chrome.webview.removeEventListener('message', handleResponse);
+          
+          if (data.status === 'success') {
+            resolve(data.payload);
+          } else {
+            reject(new Error(data.errorMessage || 'Failed to parse ONNX model'));
+          }
+        }
+      };
+
+      window.chrome.webview.addEventListener('message', handleResponse);
+
+      // Send message with File as additional object
+      window.chrome.webview.postMessageWithAdditionalObjects(message, [file]);
+
+      // Timeout after 2 minutes
+      setTimeout(() => {
+        window.chrome.webview.removeEventListener('message', handleResponse);
+        reject(new Error('Parse ONNX model request timed out'));
+      }, 120000);
+    });
   }
 };
 

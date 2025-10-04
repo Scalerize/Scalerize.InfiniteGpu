@@ -287,16 +287,9 @@ export const NewTaskRequestDialog = ({
         setIsParsingModel(true);
         setSubmissionError(null);
         
-        // Get file path - in WebView2, the File object may have a path property
-        // @ts-ignore - path property may not be in standard File type but exists in WebView2
-        const filePath = onnxFile.path;
-        
-        if (!filePath) {
-          throw new Error("Could not access file path. Please ensure the file is accessible.");
-        }
-        
-        // Parse the model using the file path
-        const result = await DesktopBridge.parseOnnxModel(filePath);
+        // Parse the model by passing the File object directly
+        // The DesktopBridge will use postMessageWithAdditionalObjects to send it
+        const result = await DesktopBridge.parseOnnxModel(onnxFile);
         setParsedModel(result);
         
         // Auto-populate input bindings from parsed model
