@@ -15,6 +15,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
     {
         private readonly Dictionary<string, List<Func<JsonNode?, Task>>> _eventHandlers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Func<JsonNode?, Task<JsonNode?>>> _methodHandlers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Func<JsonNode?, IReadOnlyList<object>, Task<JsonNode?>>> _methodHandlersWithObjects = new(StringComparer.OrdinalIgnoreCase);
         private readonly JsonSerializerOptions _serializerOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -105,6 +106,18 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             lock (_syncRoot)
             {
                 _methodHandlers[methodName] = handler;
+            }
+        }
+
+        public void RegisterMethodWithObjects(string methodName, Func<JsonNode?, IReadOnlyList<object>, Task<JsonNode?>> handler)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(methodName);
+            ArgumentNullException.ThrowIfNull(handler);
+            EnsureNotDisposed();
+
+            lock (_syncRoot)
+            {
+                _methodHandlersWithObjects[methodName] = handler;
             }
         }
 
@@ -221,13 +234,20 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             var messageType = root["type"]?.GetValue<string>();
 
+            // Get additional objects if present
+            IReadOnlyList<object>? additionalObjects = null;
+            if (args.AdditionalObjects?.Count > 0)
+            {
+                additionalObjects = args.AdditionalObjects;
+            }
+
             switch (messageType)
             {
                 case "event":
                     await HandleIncomingEventAsync(root).ConfigureAwait(false);
                     break;
                 case "method":
-                    await HandleMethodInvocationAsync(root).ConfigureAwait(false);
+                    await HandleMethodInvocationAsync(root, additionalObjects).ConfigureAwait(false);
                     break;
             }
         }
@@ -270,7 +290,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
         }
 
-        private async Task HandleMethodInvocationAsync(JsonNode message)
+        private async Task HandleMethodInvocationAsync(JsonNode message, IReadOnlyList<object>? additionalObjects = null)
         {
             var methodName = message["name"]?.GetValue<string>();
             var requestId = message["requestId"]?.GetValue<string>();
@@ -280,13 +300,20 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 return;
             }
 
-            Func<JsonNode?, Task<JsonNode?>>? handler;
+            // Check for handlers that accept additional objects first
+            Func<JsonNode?, IReadOnlyList<object>, Task<JsonNode?>>? handlerWithObjects = null;
+            Func<JsonNode?, Task<JsonNode?>>? handler = null;
+            
             lock (_syncRoot)
             {
-                _methodHandlers.TryGetValue(methodName, out handler);
+                _methodHandlersWithObjects.TryGetValue(methodName, out handlerWithObjects);
+                if (handlerWithObjects is null)
+                {
+                    _methodHandlers.TryGetValue(methodName, out handler);
+                }
             }
 
-            if (handler is null)
+            if (handlerWithObjects is null && handler is null)
             {
                 await SendMethodErrorAsync(requestId, methodName, "MethodNotFound", $"No method registered with name '{methodName}'.").ConfigureAwait(false);
                 return;
@@ -295,7 +322,17 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             try
             {
                 var payload = message["payload"];
-                var result = await handler(payload).ConfigureAwait(false);
+                JsonNode? result;
+                
+                if (handlerWithObjects is not null)
+                {
+                    result = await handlerWithObjects(payload, additionalObjects ?? Array.Empty<object>()).ConfigureAwait(false);
+                }
+                else
+                {
+                    result = await handler!(payload).ConfigureAwait(false);
+                }
+                
                 await SendMethodResponseAsync(requestId, result).ConfigureAwait(false);
             }
             catch (Exception ex)

@@ -30,7 +30,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             return Task.Run(() => CollectInternal(cancellationToken), cancellationToken);
         }
 
-        private static HardwareMetricsSnapshot CollectInternal(CancellationToken cancellationToken)
+        private HardwareMetricsSnapshot CollectInternal(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var (cpuCores, cpuFrequencyGhz) = GetCpuInfo();
@@ -61,7 +61,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 storageTotalGb);
         }
 
-        private static (int? cores, double? frequencyGhz) GetCpuInfo()
+        public (int? cores, double? frequencyGhz) GetCpuInfo()
         {
             try
             {
@@ -101,7 +101,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
         }
 
-        private static (string? name, string? vendor, double? frequencyMhz) GetGpuInfo()
+        public (string? name, string? vendor, double? frequencyMhz) GetGpuInfo()
         {
             try
             {
@@ -132,7 +132,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
         }
 
-        private static (double? totalGb, double? availableGb) GetMemoryInfo()
+        public (double? totalGb, double? availableGb) GetMemoryInfo()
         {
             try
             {
@@ -158,7 +158,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
         }
 
-        private static (double? freeGb, double? totalGb) GetStorageInfo()
+        public (double? freeGb, double? totalGb) GetStorageInfo()
         {
             try
             {
@@ -184,7 +184,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
         }
 
-        private static (double? downlinkMbps, double? latencyMs) GetNetworkInfo(CancellationToken cancellationToken)
+        public (double? downlinkMbps, double? latencyMs) GetNetworkInfo(CancellationToken cancellationToken)
         {
             double? downlink = null;
             try

@@ -33,6 +33,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private readonly DeviceIdentifierService _deviceIdentifierService;
         private readonly OnnxRuntimeService _onnxRuntimeService;
+        private readonly OnnxParsingService _onnxParsingService;
+        private readonly OnnxPartitionerService _onnxPartitionerService;
+        private readonly HardwareMetricsService _hardwareMetricsService;
         private readonly HttpClient _httpClient;
         private readonly bool _ownsHttpClient;
         private readonly InputParsingService _inputParsingService;
@@ -49,13 +52,23 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private string? _authToken;
         private int _tokenVersion;
 
-        public BackgroundWorkService(DeviceIdentifierService deviceIdentifierService, OnnxRuntimeService onnxRuntimeService, HttpClient httpClient, InputParsingService inputParsingService, OutputParsingService outputParsingService)
+        public BackgroundWorkService(DeviceIdentifierService deviceIdentifierService,
+        OnnxRuntimeService onnxRuntimeService,
+        HttpClient httpClient,
+         InputParsingService inputParsingService,
+          OutputParsingService outputParsingService,
+          OnnxParsingService onnxParsingService,
+          OnnxPartitionerService onnxPartitionerService,
+          HardwareMetricsService hardwareMetricsService)
         {
             _deviceIdentifierService = deviceIdentifierService ?? throw new ArgumentNullException(nameof(deviceIdentifierService));
             _onnxRuntimeService = onnxRuntimeService ?? throw new ArgumentNullException(nameof(onnxRuntimeService));
             _inputParsingService = inputParsingService ?? throw new ArgumentNullException(nameof(inputParsingService));
             _outputParsingService = outputParsingService ?? throw new ArgumentNullException(nameof(outputParsingService));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _onnxParsingService = onnxParsingService ?? throw new ArgumentNullException(nameof(onnxParsingService));
+            _onnxPartitionerService = onnxPartitionerService ?? throw new ArgumentNullException(nameof(onnxPartitionerService));
+            _hardwareMetricsService = hardwareMetricsService ?? throw new ArgumentNullException(nameof(hardwareMetricsService));
         }
 
         public void Start()
@@ -208,7 +221,23 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                         _hubConnection = connection;
                     }
 
-                    await connection.InvokeAsync("JoinAvailableTasks", string.Empty, "Provider", cancellationToken).ConfigureAwait(false);
+                    // Collect hardware metrics to get total RAM
+                    long? totalRamBytes = null;
+                    try
+                    {
+                        var metrics = await _hardwareMetricsService.CollectAsync(cancellationToken).ConfigureAwait(false);
+                        if (metrics.MemoryTotalGb.HasValue)
+                        {
+                            // Convert GB to bytes
+                            totalRamBytes = (long)(metrics.MemoryTotalGb.Value * 1024 * 1024 * 1024);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[BackgroundWorkService] Failed to collect hardware metrics: {ex}");
+                    }
+
+                    await connection.InvokeAsync("JoinAvailableTasks", string.Empty, "Provider", totalRamBytes, cancellationToken).ConfigureAwait(false);
 
                     while (!cancellationToken.IsCancellationRequested)
                     {
@@ -353,21 +382,27 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private async Task ProcessExecutionRequestAsync(ExecutionRequestedPayload payload, CancellationToken cancellationToken)
         {
             var subtask = payload.Subtask;
+            var authToken = Volatile.Read(ref _authToken);
+            if (authToken == null)
+                return;
+
             var connection = await WaitForActiveConnectionAsync(cancellationToken);
 
             await connection.InvokeAsync("AcknowledgeExecutionStart", subtask.Id, cancellationToken);
             await connection.InvokeAsync("ReportProgress", subtask.Id, 5, cancellationToken);
-
-            List<NamedOnnxValue>? inputs = null;
 
             try
             {
                 var stopwatch = Stopwatch.StartNew();
 
                 var modelBytes = await DownloadModelAsync(subtask, cancellationToken);
-                inputs = await _inputParsingService.BuildNamedInputsAsync(subtask.ParametersJson, cancellationToken);
-                var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(modelBytes, inputs, cancellationToken);
-                var authToken = Volatile.Read(ref _authToken);
+
+                var inputs = await _inputParsingService.BuildNamedInputsAsync(
+                    subtask.ParametersJson, cancellationToken);
+
+                var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(
+                    modelBytes, inputs, cancellationToken);
+
                 var processedOutputs = await _outputParsingService.ProcessOutputsAsync(
                     subtask.TaskId,
                     subtask.Id,
@@ -378,8 +413,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
                 stopwatch.Stop();
 
-                var device = ResolveDevice(subtask);
-
                 var resultPayload = new
                 {
                     subtaskId = subtask.Id,
@@ -387,7 +420,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     metrics = new
                     {
                         durationSeconds = stopwatch.Elapsed.TotalSeconds,
-                        device = device.ToString().ToLowerInvariant()
+                        device = _onnxRuntimeService.GetExecutionProvider().ToString().ToLowerInvariant()
                     },
                     outputs = processedOutputs
                 };
@@ -572,73 +605,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             return false;
         }
 
-        private ExecutionProviderDevice ResolveDevice(SubtaskPayload subtask)
-        {
-            if (TryReadDeviceFromMetadata(subtask.ExecutionState?.ExtendedMetadata, out var device))
-            {
-                return device;
-            }
-
-            if (subtask.ResourceRequirements?.GpuUnits > 0)
-            {
-                return ExecutionProviderDevice.Gpu;
-            }
-
-            return ExecutionProviderDevice.Cpu;
-        }
-
-        private static bool TryReadDeviceFromMetadata(IDictionary<string, JsonElement>? metadata, out ExecutionProviderDevice device)
-        {
-            if (metadata is null)
-            {
-                device = ExecutionProviderDevice.Cpu;
-                return false;
-            }
-
-            foreach (var (key, value) in metadata)
-            {
-                if (!value.ValueKind.Equals(JsonValueKind.String))
-                {
-                    continue;
-                }
-
-                if (!string.Equals(key, "executionProviderDevice", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(key, "device", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (TryParseDevice(value.GetString(), out device))
-                {
-                    return true;
-                }
-            }
-
-            device = ExecutionProviderDevice.Cpu;
-            return false;
-        }
-
-        private static bool TryParseDevice(string? value, out ExecutionProviderDevice device)
-        {
-            switch (value?.Trim().ToLowerInvariant())
-            {
-                case "NvTensorRtRtxExecutionProvider":
-                    device = ExecutionProviderDevice.Gpu;
-                    return true;
-                case "OpenVINOExecutionProvider":
-                case "QNNExecutionProvider":
-                case "VitisAIExecutionProvider":
-                    device = ExecutionProviderDevice.Npu;
-                    return true;
-                case "CPUExecutionProvider":
-                    device = ExecutionProviderDevice.Cpu;
-                    return true;
-                default:
-                    device = ExecutionProviderDevice.Cpu;
-                    return false;
-            }
-        }
-
         private static HttpClient CreateDefaultHttpClient()
         {
             var handler = new HttpClientHandler
@@ -657,13 +623,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private sealed record ExecutionQueueItem(ExecutionRequestedPayload Payload);
 
-        private enum ExecutionProviderDevice
-        {
-            Cpu,
-            Gpu,
-            Npu
-        }
-
         private sealed class ExecutionRequestedPayload
         {
             public SubtaskPayload Subtask { get; init; } = new();
@@ -678,7 +637,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             public string ParametersJson { get; init; } = "{}";
             public ExecutionSpecPayload? ExecutionSpec { get; init; }
             public ExecutionStatePayload? ExecutionState { get; init; }
-            public ResourceRequirementsPayload? ResourceRequirements { get; init; }
             public OnnxModelPayload? OnnxModel { get; init; }
         }
 
@@ -692,14 +650,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             public IDictionary<string, JsonElement>? ExtendedMetadata { get; init; }
         }
 
-        private sealed class ResourceRequirementsPayload
-        {
-            public int GpuUnits { get; init; }
-            public int CpuCores { get; init; }
-            public int DiskGb { get; init; }
-            public int NetworkGb { get; init; }
-        }
-
         private sealed class OnnxModelPayload
         {
             public string? ResolvedReadUri { get; init; }
@@ -707,4 +657,11 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         }
 
     }
+    public enum ExecutionProviderDevice
+    {
+        Cpu,
+        Gpu,
+        Npu
+    }
+
 }

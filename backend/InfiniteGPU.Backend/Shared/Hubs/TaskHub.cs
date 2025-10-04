@@ -1,15 +1,12 @@
-using System.Collections.Concurrent;
-using System.Linq;
-using System.Security.Claims;
-using System.Security.Cryptography;
+using System.Collections.Concurrent; 
+using System.Security.Claims; 
 using System.Text.Json;
 using Task = System.Threading.Tasks.Task;
 using InfiniteGPU.Backend.Data;
 using InfiniteGPU.Backend.Data.Entities;
 using InfiniteGPU.Backend.Features.Subtasks;
 using InfiniteGPU.Backend.Shared.Models;
-using InfiniteGPU.Backend.Shared.Services;
-using TaskStatusEnum = InfiniteGPU.Backend.Shared.Models.TaskStatus;
+using InfiniteGPU.Backend.Shared.Services; 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +24,7 @@ public class TaskHub : Hub
     private static readonly ConcurrentDictionary<string, string> ConnectionToProviderMap = new();
     private static readonly ConcurrentDictionary<string, Guid> ConnectionToDeviceMap = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> DeviceConnections = new();
+    private static readonly ConcurrentDictionary<Guid, long> DeviceRamBytes = new();
 
     public const string ProvidersGroupName = "Providers";
     public const string OnSubtaskAcceptedEvent = "OnSubtaskAccepted";
@@ -60,7 +58,6 @@ public class TaskHub : Hub
     public override async Task OnConnectedAsync()
     {
         var userId = CurrentUserId;
-        Guid? deviceId = null;
 
         if (!string.IsNullOrWhiteSpace(userId))
         {
@@ -71,7 +68,7 @@ public class TaskHub : Hub
             {
                 try
                 {
-                    deviceId = await EnsureDeviceRegistrationAsync(
+                    var deviceId = await EnsureDeviceRegistrationAsync(
                         userId,
                         deviceIdentifier,
                         Context.ConnectionId,
@@ -162,7 +159,7 @@ public class TaskHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task JoinAvailableTasks(string userId, string role)
+    public async Task JoinAvailableTasks(string userId, string role, long? totalRamBytes = null)
     {
         var normalizedUserId = string.IsNullOrWhiteSpace(CurrentUserId) ? userId : CurrentUserId!;
 
@@ -177,6 +174,12 @@ public class TaskHub : Hub
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, ProviderGroupName(normalizedUserId));
             RegisterProviderConnection(normalizedUserId, Context.ConnectionId);
+
+            // Update device RAM in memory if provided
+            if (totalRamBytes.HasValue && ConnectionToDeviceMap.TryGetValue(Context.ConnectionId, out var deviceId))
+            {
+                DeviceRamBytes[deviceId] = totalRamBytes.Value;
+            }
         }
 
         await DispatchPendingSubtaskAsync(Context.ConnectionAborted);
@@ -745,22 +748,17 @@ public class TaskHub : Hub
         IGroupManager groups,
         CancellationToken cancellationToken)
     {
-        var providerIds = GetConnectedProviderIds().ToArray();
-        if (providerIds.Length == 0)
+        var connectedDevices = GetConnectedDevices();
+        if (connectedDevices.Count == 0)
         {
             return;
         }
+ 
+        var sortedDevices = GetDevicesSortedByRam(connectedDevices);
 
-        Random.Shared.Shuffle(providerIds);
-
-        foreach (var providerUserId in providerIds)
+        foreach (var (deviceId, providerUserId) in sortedDevices)
         {
-            var deviceId = GetPrimaryDeviceId(providerUserId);
-            if (deviceId is null)
-            {
-                continue;
-            }
-            var assignment = await assignmentService.TryOfferNextSubtaskAsync(providerUserId, deviceId.Value, cancellationToken);
+            var assignment = await assignmentService.TryOfferNextSubtaskAsync(providerUserId, deviceId, cancellationToken);
             if (assignment is null)
             {
                 continue;
@@ -852,6 +850,8 @@ public class TaskHub : Hub
             if (deviceConnections.IsEmpty)
             {
                 DeviceConnections.TryRemove(deviceId, out _);
+                // Also remove RAM data when device fully disconnects
+                DeviceRamBytes.TryRemove(deviceId, out _);
             }
         }
 
@@ -979,6 +979,55 @@ public class TaskHub : Hub
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static List<(Guid DeviceId, string ProviderUserId)> GetConnectedDevices()
+    {
+        var devices = new List<(Guid DeviceId, string ProviderUserId)>();
+
+        foreach (var providerEntry in ProviderConnections)
+        {
+            var providerUserId = providerEntry.Key;
+            var connections = providerEntry.Value;
+
+            if (connections.IsEmpty)
+            {
+                continue;
+            }
+
+            // Get all unique device IDs for this provider
+            var deviceIds = connections.Values
+                .Where(deviceId => deviceId != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            foreach (var deviceId in deviceIds)
+            {
+                devices.Add((deviceId, providerUserId));
+            }
+        }
+
+        return devices;
+    }
+
+    private static List<(Guid DeviceId, string ProviderUserId)> GetDevicesSortedByRam(List<(Guid DeviceId, string ProviderUserId)> devices)
+    {
+        var deviceRamPairs = new List<(Guid DeviceId, string ProviderUserId, long Ram)>();
+
+        foreach (var (deviceId, providerUserId) in devices)
+        {
+            // Get RAM from in-memory storage
+            var ram = DeviceRamBytes.TryGetValue(deviceId, out var ramBytes) ? ramBytes : 0;
+            deviceRamPairs.Add((deviceId, providerUserId, ram));
+        }
+
+        // Sort by RAM descending (highest RAM first)
+        var sortedDevices = deviceRamPairs
+            .OrderByDescending(pair => pair.Ram)
+            .Select(pair => (pair.DeviceId, pair.ProviderUserId))
+            .ToList();
+
+        return sortedDevices;
     }
 
     public static TaskDto BuildTaskDto(Data.Entities.Task task)

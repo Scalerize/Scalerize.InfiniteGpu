@@ -11,6 +11,7 @@ using Microsoft.Web.WebView2.Core;
 using Scalerize.InfiniteGpu.Desktop.Constants;
 using Scalerize.InfiniteGpu.Desktop.Services;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -92,6 +93,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         private readonly bool _isDevelopment;
         private readonly OnnxRuntimeService _onnxRuntimeService;
+        private readonly OnnxParsingService _onnxParsingService;
         private readonly HardwareMetricsService _hardwareMetricsService;
         private readonly WebViewCommunicationService _webViewBridge;
         private readonly BackgroundWorkService _backgroundWorkService;
@@ -109,12 +111,14 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         public MainWindow(
             OnnxRuntimeService onnxRuntimeService,
+            OnnxParsingService onnxParsingService,
             HardwareMetricsService hardwareMetricsService,
             WebViewCommunicationService webViewCommunicationService,
             BackgroundWorkService backgroundWorkService,
             DeviceIdentifierService deviceIdentifierService)
         {
             _onnxRuntimeService = onnxRuntimeService ?? throw new ArgumentNullException(nameof(onnxRuntimeService));
+            _onnxParsingService = onnxParsingService ?? throw new ArgumentNullException(nameof(onnxParsingService));
             _hardwareMetricsService = hardwareMetricsService ?? throw new ArgumentNullException(nameof(hardwareMetricsService));
             _webViewBridge = webViewCommunicationService ?? throw new ArgumentNullException(nameof(webViewCommunicationService));
             _backgroundWorkService = backgroundWorkService ?? throw new ArgumentNullException(nameof(backgroundWorkService));
@@ -371,6 +375,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             _webViewBridge.RegisterEventHandler("frontend:requestRuntimeState", OnFrontendRequestRuntimeStateAsync);
             _webViewBridge.RegisterMethod("auth:setToken", OnAuthSentToken);
             _webViewBridge.RegisterMethod("runtime:getState", HandleRuntimeGetStateAsync);
+            _webViewBridge.RegisterMethodWithObjects("runtime:parseOnnxModel", HandleRuntimeParseOnnxModelAsync);
             _webViewBridge.RegisterMethod("app:getVersion", HandleAppGetVersionAsync);
             _webViewBridge.RegisterMethod("hardware:getMetrics", HandleHardwareGetMetricsAsync);
             _webViewBridge.RegisterMethod("device:getIdentifier", HandleDeviceGetIdentifierAsync);
@@ -402,6 +407,45 @@ namespace Scalerize.InfiniteGpu.Desktop
             };
 
             return Task.FromResult<JsonNode?>(result);
+        }
+
+        private Task<JsonNode?> HandleRuntimeParseOnnxModelAsync(JsonNode? payload, IReadOnlyList<object> additionalObjects)
+        {
+            // Extract file from additional objects
+            string? filePath = null;
+            
+            foreach (var obj in additionalObjects)
+            {
+                if (obj is CoreWebView2File file && !string.IsNullOrEmpty(file.Path))
+                {
+                    filePath = file.Path;
+                    break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                throw new ArgumentException("ONNX model file is required. Please pass the file as an additional object.");
+            }
+
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException($"ONNX model file not found: {filePath}");
+            }
+
+            // Read the ONNX model from file
+            byte[] modelData = File.ReadAllBytes(filePath);
+
+            // Parse the ONNX model
+            var model = _onnxParsingService.Deserialize(modelData);
+
+            // Get input and output names
+            var inputOutputNames = _onnxParsingService.GetInputOutputNames(model);
+
+            // Convert to JsonNode
+            var result = JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(inputOutputNames));
+
+            return Task.FromResult(result);
         }
 
         private Task<JsonNode?> HandleAppGetVersionAsync(JsonNode? payload)
