@@ -245,5 +245,50 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             }
             return lookup;
         }
+
+        /// <summary>
+        /// Extracts input and output tensor names from an ONNX model
+        /// </summary>
+        /// <param name="model">The ONNX model to extract names from</param>
+        /// <returns>Object containing arrays of input and output names</returns>
+        public object GetInputOutputNames(Onnx.ModelProto model)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (model.Graph == null)
+            {
+                throw new InvalidOperationException("Model graph is null");
+            }
+
+            var inputNames = new List<string>();
+            var outputNames = new List<string>();
+
+            // Extract input names
+            foreach (var input in model.Graph.Input)
+            {
+                if (!string.IsNullOrEmpty(input.Name))
+                {
+                    inputNames.Add(input.Name);
+                }
+            }
+
+            // Extract output names
+            foreach (var output in model.Graph.Output)
+            {
+                if (!string.IsNullOrEmpty(output.Name))
+                {
+                    outputNames.Add(output.Name);
+                }
+            }
+
+            return new
+            {
+                inputs = inputNames.Select(name => new { name }).ToArray(),
+                outputs = outputNames.Select(name => new { name }).ToArray()
+            };
+        }
     }
 }

@@ -410,52 +410,36 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         private Task<JsonNode?> HandleRuntimeParseOnnxModelAsync(JsonNode? payload)
         {
-            if (payload is null || payload["data"] is null)
+            if (payload is null || payload["filePath"] is null)
             {
-                throw new ArgumentException("ONNX model data is required");
+                throw new ArgumentException("ONNX model file path is required");
             }
 
-            // Extract the base64-encoded byte array from the payload
-            var base64Data = payload["data"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(base64Data))
+            // Extract the file path from the payload
+            var filePath = payload["filePath"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                throw new ArgumentException("ONNX model data cannot be empty");
+                throw new ArgumentException("ONNX model file path cannot be empty");
             }
 
-            byte[] modelData;
-            try
+            if (!File.Exists(filePath))
             {
-                modelData = Convert.FromBase64String(base64Data);
+                throw new FileNotFoundException($"ONNX model file not found: {filePath}");
             }
-            catch (FormatException ex)
-            {
-                throw new ArgumentException("Invalid base64 encoding for ONNX model data", ex);
-            }
+
+            // Read the ONNX model from file
+            byte[] modelData = File.ReadAllBytes(filePath);
 
             // Parse the ONNX model
             var model = _onnxParsingService.Deserialize(modelData);
 
-            // Convert the model to a JSON representation
-            var result = new JsonObject
-            {
-                ["success"] = true,
-                ["irVersion"] = model.IrVersion,
-                ["producerName"] = model.ProducerName,
-                ["producerVersion"] = model.ProducerVersion,
-                ["domain"] = model.Domain,
-                ["modelVersion"] = model.ModelVersion,
-                ["docString"] = model.DocString,
-                ["graph"] = new JsonObject
-                {
-                    ["name"] = model.Graph?.Name ?? string.Empty,
-                    ["nodeCount"] = model.Graph?.Node.Count ?? 0,
-                    ["inputCount"] = model.Graph?.Input.Count ?? 0,
-                    ["outputCount"] = model.Graph?.Output.Count ?? 0,
-                    ["initializerCount"] = model.Graph?.Initializer.Count ?? 0
-                }
-            };
+            // Get input and output names
+            var inputOutputNames = _onnxParsingService.GetInputOutputNames(model);
 
-            return Task.FromResult<JsonNode?>(result);
+            // Convert to JsonNode
+            var result = JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(inputOutputNames));
+
+            return Task.FromResult(result);
         }
 
         private Task<JsonNode?> HandleAppGetVersionAsync(JsonNode? payload)

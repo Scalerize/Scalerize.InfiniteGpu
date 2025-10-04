@@ -20,6 +20,7 @@ import { FileDropzone } from "../../../shared/components/FileDropzone";
 import { DialogShell } from "../../../shared/components/DialogShell";
 import { appQueryClient } from "../../../shared/providers/queryClient";
 import { invalidateMyTasksQueryKey } from "../queries/useMyTasksQuery";
+import { DesktopBridge, type OnnxModelParseResult } from "../../../shared/services/DesktopBridge";
 
 interface NewTaskRequestDialogProps {
   open: boolean;
@@ -183,6 +184,8 @@ export const NewTaskRequestDialog = ({
   const [onnxFile, setOnnxFile] = useState<File | null>(null);
   const [onnxFileName, setOnnxFileName] = useState<string | null>(null);
   const [taskName, setTaskName] = useState<string>("");
+  const [parsedModel, setParsedModel] = useState<OnnxModelParseResult | null>(null);
+  const [isParsingModel, setIsParsingModel] = useState<boolean>(false);
 
   useEffect(() => {
     if (!open) {
@@ -200,7 +203,7 @@ export const NewTaskRequestDialog = ({
     }
   }, [open]);
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (currentStep < totalSteps) {
       setCurrentStep((prev) => prev + 1);
       setSubmissionError(null);
@@ -272,11 +275,68 @@ export const NewTaskRequestDialog = ({
     return true;
   };
 
-  const handleStepNavigation = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleStepNavigation = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (validateCurrentStep()) {
-      handleNextStep();
+    if (!validateCurrentStep()) {
+      return;
     }
+
+    // If moving from step 1, parse the ONNX model
+    if (currentStep === 1 && onnxFile && DesktopBridge.isAvailable()) {
+      try {
+        setIsParsingModel(true);
+        setSubmissionError(null);
+        
+        // Get file path - in WebView2, the File object may have a path property
+        // @ts-ignore - path property may not be in standard File type but exists in WebView2
+        const filePath = onnxFile.path;
+        
+        if (!filePath) {
+          throw new Error("Could not access file path. Please ensure the file is accessible.");
+        }
+        
+        // Parse the model using the file path
+        const result = await DesktopBridge.parseOnnxModel(filePath);
+        setParsedModel(result);
+        
+        // Auto-populate input bindings from parsed model
+        if (result.inputs && result.inputs.length > 0) {
+          const newBindings = result.inputs.map((input) => ({
+            id: `binding-${Math.random().toString(36).slice(2, 10)}`,
+            tensorName: input.name,
+            payloadType: "json" as const,
+            textPayload: "",
+            fileName: null,
+            file: null,
+            maxLength: 512,
+          }));
+          setInferenceBindings(newBindings);
+        }
+        
+        // Auto-populate output bindings from parsed model
+        if (result.outputs && result.outputs.length > 0) {
+          const newOutputs = result.outputs.map((output) => ({
+            id: `output-${Math.random().toString(36).slice(2, 10)}`,
+            tensorName: output.name,
+            payloadType: "json" as const,
+            fileFormat: "npz" as const,
+          }));
+          setOutputBindings(newOutputs);
+        }
+      } catch (error) {
+        setSubmissionError(
+          error instanceof Error
+            ? `Failed to parse ONNX model: ${error.message}`
+            : "Failed to parse ONNX model. Please verify the file is a valid ONNX model."
+        );
+        setIsParsingModel(false);
+        return;
+      } finally {
+        setIsParsingModel(false);
+      }
+    }
+
+    await handleNextStep();
   };
 
   const handleInferenceBindingChange = <Field extends keyof InferenceBinding>(
@@ -1587,10 +1647,10 @@ export const NewTaskRequestDialog = ({
               <button
                 type="button"
                 onClick={handleStepNavigation}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isParsingModel}
                 className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
               >
-                Next
+                {isParsingModel ? "Parsing model..." : "Next"}
               </button>
             ) : (
               <button
