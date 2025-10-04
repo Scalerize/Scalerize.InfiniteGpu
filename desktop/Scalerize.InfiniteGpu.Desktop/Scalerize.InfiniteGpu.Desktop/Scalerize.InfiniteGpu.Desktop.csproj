@@ -9,6 +9,7 @@
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<EnableMsixTooling>true</EnableMsixTooling>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+		<ProtobufGenerateBeforeCompile>true</ProtobufGenerateBeforeCompile>
 		<UseWinUI>true</UseWinUI>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
@@ -36,11 +37,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Protobuf Include="Proto\onnx.proto3" GrpcServices="None" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Compile Include="obj\**\Proto\*.cs" />
+		<Protobuf Include="Proto\onnx.proto3" GrpcServices="None" OutputDir="Proto\Generated" CompileOutputs="false" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -52,7 +49,6 @@
 	  </Content>
 	</ItemGroup>
 
-	<!-- Publish Properties -->
 	<PropertyGroup>
 		<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
 		<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
