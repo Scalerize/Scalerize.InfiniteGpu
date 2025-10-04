@@ -57,36 +57,25 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 var outputData = output.Data;
 
                 if (outputData == null)
-                { 
+                {
                     continue;
                 }
 
                 var setting = outputSettings?.FirstOrDefault(s =>
                     string.Equals(s.TensorName, tensorName, StringComparison.OrdinalIgnoreCase));
-                 
+
 
                 if (setting == null)
                 {
                     continue;
                 }
 
-                if (string.Equals(setting.PayloadType, "Binary", StringComparison.OrdinalIgnoreCase))
-                {
-                    var fileFormat = setting.FileFormat ?? "npy";
-                    var binaryData = await SerializeOutputToBinaryAsync(outputData, output.Dimensions, fileFormat, cancellationToken);
-                    var uploadUrl = await GenerateOutputUploadUrlAsync(taskId, subtaskId, tensorName, authToken, fileFormat, cancellationToken);
-                    await UploadBinaryDataAsync(uploadUrl.UploadUri, binaryData, cancellationToken);
-                    processedOutputs.Add( new { tensorName, fileUrl = uploadUrl.BlobUri, payloadType = "Binary", format = fileFormat });
-                }
-                else
-                {
-                    Debug.WriteLine($"[OutputParsingService] Unsupported payload type '{setting.PayloadType}' for output '{tensorName}'. Defaulting to Binary with npy format.");
-                    var fileFormat = "npy";
-                    var binaryData = await SerializeOutputToBinaryAsync(outputData, output.Dimensions, fileFormat, cancellationToken);
-                    var uploadUrl = await GenerateOutputUploadUrlAsync(taskId, subtaskId, tensorName, authToken, fileFormat, cancellationToken);
-                    await UploadBinaryDataAsync(uploadUrl.UploadUri, binaryData, cancellationToken);
-                    processedOutputs.Add( new { tensorName, fileUrl = uploadUrl.BlobUri, payloadType = "Binary", format = fileFormat });
-                }
+                var fileFormat = setting.FileFormat ?? "npy";
+                var binaryData = await SerializeOutputToBinaryAsync(outputData, output.Dimensions, fileFormat, cancellationToken);
+                var uploadUrl = await GenerateOutputUploadUrlAsync(taskId, subtaskId, tensorName, authToken, fileFormat, cancellationToken);
+                await UploadBinaryDataAsync(uploadUrl.UploadUri, binaryData, cancellationToken);
+                processedOutputs.Add(new { tensorName, fileUrl = uploadUrl.BlobUri, payloadType = "Binary", format = fileFormat });
+
             }
 
             return processedOutputs;

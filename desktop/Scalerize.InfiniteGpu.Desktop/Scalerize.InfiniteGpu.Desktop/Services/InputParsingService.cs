@@ -89,33 +89,12 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
                             var tensorName = tensorNameNode.GetString()!.Trim();
 
-                            if (!bindingNode.TryGetProperty("payloadType", out var payloadTypeNode) ||
-                                payloadTypeNode.ValueKind != JsonValueKind.String)
+                            var handled = await TryAddBinaryTensorAsync(tensorName, bindingNode, inputs, cancellationToken);
+                            if (!handled)
                             {
-                                continue;
+                                Debug.WriteLine($"[InputParsingService] Failed to build binary tensor for input '{tensorName}'.");
                             }
 
-                            var payloadType = payloadTypeNode.GetString()?.Trim();
-                            if (string.IsNullOrEmpty(payloadType))
-                            {
-                                continue;
-                            }
-
-                            switch (payloadType.ToLowerInvariant())
-                            {
-                                case "binary":
-                                    {
-                                        var handled = await TryAddBinaryTensorAsync(tensorName, bindingNode, inputs, cancellationToken).ConfigureAwait(false);
-                                        if (!handled)
-                                        {
-                                            Debug.WriteLine($"[InputParsingService] Failed to build binary tensor for input '{tensorName}'.");
-                                        }
-                                    }
-                                    break;
-                                default:
-                                    Debug.WriteLine($"[InputParsingService] Unsupported payloadType '{payloadType}' for input '{tensorName}'.");
-                                    break;
-                            }
                         }
                     }
                 }
@@ -302,38 +281,38 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             try
             {
                 var text = Encoding.UTF8.GetString(payload);
-                
+
                 // Extract tokenization parameters from binding
                 var maxLength = 512;
                 var addSpecialTokens = true;
                 var padding = false;
-                
+
                 if (bindingNode.TryGetProperty("maxLength", out var maxLengthNode) &&
                     maxLengthNode.ValueKind == JsonValueKind.Number)
                 {
                     maxLength = maxLengthNode.GetInt32();
                 }
-                
+
                 if (bindingNode.TryGetProperty("addSpecialTokens", out var specialTokensNode) &&
                     (specialTokensNode.ValueKind == JsonValueKind.True || specialTokensNode.ValueKind == JsonValueKind.False))
                 {
                     addSpecialTokens = specialTokensNode.GetBoolean();
                 }
-                
+
                 if (bindingNode.TryGetProperty("padding", out var paddingNode) &&
                     (paddingNode.ValueKind == JsonValueKind.True || paddingNode.ValueKind == JsonValueKind.False))
                 {
                     padding = paddingNode.GetBoolean();
                 }
-                
+
                 // Tokenize the text into token IDs
                 var tokenIds = _tokenizer.Encode(text, maxLength, addSpecialTokens, padding);
-                
+
                 // Create tensor with shape [1, sequence_length] for batch size of 1
                 var shape = new[] { 1, tokenIds.Length };
                 var tensor = new DenseTensor<long>(tokenIds, shape);
                 value = NamedOnnxValue.CreateFromTensor(tensorName, tensor);
-                
+
                 Debug.WriteLine($"[InputParsingService] Tokenized text file input '{tensorName}': {tokenIds.Length} tokens");
                 return true;
             }
