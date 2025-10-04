@@ -400,14 +400,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 var inputs = await _inputParsingService.BuildNamedInputsAsync(
                     subtask.ParametersJson, cancellationToken);
 
-                var model = _onnxParsingService.Deserialize(modelBytes);
-
-                var availableMemoryBytes = Convert.ToInt64(_hardwareMetricsService.GetMemoryInfo().totalGb);
-
-                var partitions = _onnxPartitionerService.PartitionModel(model, inputs, availableMemoryBytes);
-
-                var partitionnedModels = _onnxParsingService.CreateSubModel(model, partitions.RootNodes.First());
-
                 var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(
                     modelBytes, inputs, cancellationToken);
 

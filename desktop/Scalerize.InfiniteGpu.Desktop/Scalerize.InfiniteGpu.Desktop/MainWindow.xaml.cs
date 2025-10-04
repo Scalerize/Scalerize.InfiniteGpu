@@ -92,6 +92,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         private readonly bool _isDevelopment;
         private readonly OnnxRuntimeService _onnxRuntimeService;
+        private readonly OnnxParsingService _onnxParsingService;
         private readonly HardwareMetricsService _hardwareMetricsService;
         private readonly WebViewCommunicationService _webViewBridge;
         private readonly BackgroundWorkService _backgroundWorkService;
@@ -109,12 +110,14 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         public MainWindow(
             OnnxRuntimeService onnxRuntimeService,
+            OnnxParsingService onnxParsingService,
             HardwareMetricsService hardwareMetricsService,
             WebViewCommunicationService webViewCommunicationService,
             BackgroundWorkService backgroundWorkService,
             DeviceIdentifierService deviceIdentifierService)
         {
             _onnxRuntimeService = onnxRuntimeService ?? throw new ArgumentNullException(nameof(onnxRuntimeService));
+            _onnxParsingService = onnxParsingService ?? throw new ArgumentNullException(nameof(onnxParsingService));
             _hardwareMetricsService = hardwareMetricsService ?? throw new ArgumentNullException(nameof(hardwareMetricsService));
             _webViewBridge = webViewCommunicationService ?? throw new ArgumentNullException(nameof(webViewCommunicationService));
             _backgroundWorkService = backgroundWorkService ?? throw new ArgumentNullException(nameof(backgroundWorkService));
@@ -371,6 +374,7 @@ namespace Scalerize.InfiniteGpu.Desktop
             _webViewBridge.RegisterEventHandler("frontend:requestRuntimeState", OnFrontendRequestRuntimeStateAsync);
             _webViewBridge.RegisterMethod("auth:setToken", OnAuthSentToken);
             _webViewBridge.RegisterMethod("runtime:getState", HandleRuntimeGetStateAsync);
+            _webViewBridge.RegisterMethod("runtime:parseOnnxModel", HandleRuntimeParseOnnxModelAsync);
             _webViewBridge.RegisterMethod("app:getVersion", HandleAppGetVersionAsync);
             _webViewBridge.RegisterMethod("hardware:getMetrics", HandleHardwareGetMetricsAsync);
             _webViewBridge.RegisterMethod("device:getIdentifier", HandleDeviceGetIdentifierAsync);
@@ -399,6 +403,56 @@ namespace Scalerize.InfiniteGpu.Desktop
                 ["isDevelopment"] = _isDevelopment,
                 ["runtimeReady"] = _runtimeReady,
                 ["timestamp"] = DateTimeOffset.UtcNow
+            };
+
+            return Task.FromResult<JsonNode?>(result);
+        }
+
+        private Task<JsonNode?> HandleRuntimeParseOnnxModelAsync(JsonNode? payload)
+        {
+            if (payload is null || payload["data"] is null)
+            {
+                throw new ArgumentException("ONNX model data is required");
+            }
+
+            // Extract the base64-encoded byte array from the payload
+            var base64Data = payload["data"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(base64Data))
+            {
+                throw new ArgumentException("ONNX model data cannot be empty");
+            }
+
+            byte[] modelData;
+            try
+            {
+                modelData = Convert.FromBase64String(base64Data);
+            }
+            catch (FormatException ex)
+            {
+                throw new ArgumentException("Invalid base64 encoding for ONNX model data", ex);
+            }
+
+            // Parse the ONNX model
+            var model = _onnxParsingService.Deserialize(modelData);
+
+            // Convert the model to a JSON representation
+            var result = new JsonObject
+            {
+                ["success"] = true,
+                ["irVersion"] = model.IrVersion,
+                ["producerName"] = model.ProducerName,
+                ["producerVersion"] = model.ProducerVersion,
+                ["domain"] = model.Domain,
+                ["modelVersion"] = model.ModelVersion,
+                ["docString"] = model.DocString,
+                ["graph"] = new JsonObject
+                {
+                    ["name"] = model.Graph?.Name ?? string.Empty,
+                    ["nodeCount"] = model.Graph?.Node.Count ?? 0,
+                    ["inputCount"] = model.Graph?.Input.Count ?? 0,
+                    ["outputCount"] = model.Graph?.Output.Count ?? 0,
+                    ["initializerCount"] = model.Graph?.Initializer.Count ?? 0
+                }
             };
 
             return Task.FromResult<JsonNode?>(result);

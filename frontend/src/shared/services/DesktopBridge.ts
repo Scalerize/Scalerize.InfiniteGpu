@@ -23,6 +23,23 @@ export interface HardwareMetrics {
   storageTotalGb: number | null;
 }
 
+export interface OnnxModelParseResult {
+  success: boolean;
+  irVersion: number;
+  producerName: string;
+  producerVersion: string;
+  domain: string;
+  modelVersion: number;
+  docString: string;
+  graph: {
+    name: string;
+    nodeCount: number;
+    inputCount: number;
+    outputCount: number;
+    initializerCount: number;
+  };
+}
+
 interface HardwareMetricsRaw extends Partial<Record<keyof HardwareMetrics, unknown>> {
   timestamp?: string | Date;
 }
@@ -151,6 +168,18 @@ export const DesktopBridge = {
     } catch {
       return null;
     }
+  },
+
+  async parseOnnxModel(modelData: ArrayBuffer | Uint8Array): Promise<OnnxModelParseResult> {
+    // Convert ArrayBuffer or Uint8Array to base64 string
+    const uint8Array = modelData instanceof ArrayBuffer ? new Uint8Array(modelData) : modelData;
+    const base64String = btoa(String.fromCharCode(...uint8Array));
+
+    const result = await DesktopBridge.invoke<OnnxModelParseResult>('runtime:parseOnnxModel', {
+      data: base64String
+    });
+
+    return result;
   }
 };
 
