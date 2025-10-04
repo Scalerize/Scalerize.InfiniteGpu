@@ -27,7 +27,7 @@ Transform how compute power is accessed and shared by creating a frictionless ma
 ## 🏗️ Architecture
 
 ### Backend
-**ASP.NET Core 8.0** minimal API with clean architecture patterns
+**ASP.NET Core 10.0** minimal API with clean architecture patterns
 
 - **CQRS Pattern** via MediatR for command/query separation
 - **Entity Framework Core** with SQL Server for data persistence
@@ -47,10 +47,9 @@ Transform how compute power is accessed and shared by creating a frictionless ma
 - **Zustand** for lightweight client state
 - **React Hook Form + Zod** for type-safe form handling
 - **Framer Motion** for smooth animations
-- **SignalR Client** for real-time backend communication
 
 ### Desktop Application
-**WinUI 3** native Windows application (.NET 10)
+**WinUI 3** native Windows application
 
 - **ONNX Runtime** for high-performance AI inference execution (on CPU, GPU and NPU)
 - **OpenCV Sharp** for image processing and computer vision tasks
@@ -184,39 +183,39 @@ Frontend__Url="http://localhost:5173"
 ## 🔧 Technology Stack
 
 ### Backend Technologies
-- **Runtime:** .NET 8.0
+- **Runtime:** .NET 10.0
 - **Framework:** ASP.NET Core Minimal APIs
-- **Database:** SQL Server with Entity Framework Core 8.0
+- **Database:** SQL Server with Entity Framework Core 
 - **Authentication:** ASP.NET Identity + JWT Bearer
-- **Architecture:** CQRS via MediatR 11.4
-- **Validation:** FluentValidation 11.9
+- **Architecture:** CQRS via MediatR 
+- **Validation:** FluentValidation 
 - **Real-time:** SignalR
-- **Payments:** Stripe.NET 48.5
-- **Storage:** Azure Blob Storage 12.20
+- **Payments:** Stripe.NET 
+- **Storage:** Azure Blob Storage 
 - **Documentation:** Swagger/OpenAPI
 
 ### Frontend Technologies
 - **Framework:** React 19.1
-- **Build Tool:** Vite 7.1
-- **Language:** TypeScript 5.8
+- **Build Tool:** Vite
+- **Language:** TypeScript
 - **Styling:** TailwindCSS 4.1
 - **UI Components:** Radix UI
-- **State Management:** Zustand 5.0 + TanStack Query 5.90
-- **Forms:** React Hook Form 7.63 + Zod validation
-- **Routing:** React Router 7.9
+- **State Management:** Zustand + TanStack Query 
+- **Forms:** React Hook Form + Zod validation
+- **Routing:** React Router
 - **Icons:** Lucide React
-- **Animations:** Framer Motion 12.23
-- **Real-time:** @microsoft/signalr 8.0
+- **Animations:** Framer Motion
+- **Real-time:** @microsoft/signalr
 
 ### Desktop Technologies
-- **Framework:** WinUI 3 (Windows App SDK 1.8)
+- **Framework:** WinUI 3
 - **Runtime:** .NET 10.0
-- **AI Inference:** Microsoft.ML.OnnxRuntime 1.23
-- **Image Processing:** OpenCvSharp4 4.11, ImageSharp 3.1
-- **Real-time:** SignalR Client 9.0
-- **DI Container:** Microsoft.Extensions.DependencyInjection 9.0
-- **System Metrics:** System.Management 9.0
-- **Tray Icon:** H.NotifyIcon.WinUI 2.3
+- **AI Inference:** Microsoft.ML.OnnxRuntime 
+- **Image Processing:** OpenCvSharp4, ImageSharp 
+- **Real-time:** SignalR Client 
+- **DI Container:** Microsoft.Extensions.DependencyInjection 
+- **System Metrics:** System.Management
+- **Tray Icon:** H.NotifyIcon.WinUI
 
 ## 📱 Application Flow
 
