@@ -78,13 +78,14 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     await UploadBinaryDataAsync(uploadUrl.UploadUri, binaryData, cancellationToken);
                     processedOutputs.Add( new { tensorName, fileUrl = uploadUrl.BlobUri, payloadType = "Binary", format = fileFormat });
                 }
-                else if (string.Equals(setting.PayloadType, "Text", StringComparison.OrdinalIgnoreCase))
-                {
-                    processedOutputs.Add(new { tensorName, payload = ConvertOutputToText(outputData), payloadType = "Text" });
-                }
                 else
                 {
-                    processedOutputs.Add(new { tensorName, payload = JsonSerializer.Serialize(outputData), payloadType = "Json" });
+                    Debug.WriteLine($"[OutputParsingService] Unsupported payload type '{setting.PayloadType}' for output '{tensorName}'. Defaulting to Binary with npy format.");
+                    var fileFormat = "npy";
+                    var binaryData = await SerializeOutputToBinaryAsync(outputData, output.Dimensions, fileFormat, cancellationToken);
+                    var uploadUrl = await GenerateOutputUploadUrlAsync(taskId, subtaskId, tensorName, authToken, fileFormat, cancellationToken);
+                    await UploadBinaryDataAsync(uploadUrl.UploadUri, binaryData, cancellationToken);
+                    processedOutputs.Add( new { tensorName, fileUrl = uploadUrl.BlobUri, payloadType = "Binary", format = fileFormat });
                 }
             }
 
@@ -183,11 +184,57 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             return normalizedFormat switch
             {
+                "json" => SerializeToJson(output, dimensions),
+                "txt" => SerializeToText(output),
                 "npy" => SerializeToNpy(output, dimensions),
                 "npz" => SerializeToNpz(output, dimensions),
                 "png" or "jpg" or "jpeg" or "webp" or "bmp" or "tiff" or "tif" => await SerializeToImageAsync(output, dimensions, normalizedFormat, cancellationToken),
                 _ => SerializeToNpy(output, dimensions) // Default to npy
             };
+        }
+
+        private byte[] SerializeToJson(object output, int[]? dimensions)
+        {
+            try
+            {
+                // Create a JSON object with data, dtype, and shape
+                var jsonObject = new
+                {
+                    data = output,
+                    shape = dimensions ?? Array.Empty<int>(),
+                    dtype = output switch
+                    {
+                        float[] => "float32",
+                        double[] => "float64",
+                        int[] => "int32",
+                        long[] => "int64",
+                        bool[] => "bool",
+                        _ => "object"
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(jsonObject, SerializerOptions);
+                return Encoding.UTF8.GetBytes(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OutputParsingService] Failed to serialize to JSON: {ex}");
+                throw new InvalidOperationException("Unable to serialize output to JSON", ex);
+            }
+        }
+
+        private byte[] SerializeToText(object output)
+        {
+            try
+            {
+                var text = ConvertOutputToText(output);
+                return Encoding.UTF8.GetBytes(text);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OutputParsingService] Failed to serialize to text: {ex}");
+                throw new InvalidOperationException("Unable to serialize output to text", ex);
+            }
         }
 
         private byte[] SerializeToNpy(object output, int[]? dimensions)
