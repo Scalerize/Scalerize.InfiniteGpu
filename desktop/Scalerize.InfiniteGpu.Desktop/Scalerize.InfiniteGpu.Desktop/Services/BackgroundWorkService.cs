@@ -35,6 +35,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private readonly OnnxRuntimeService _onnxRuntimeService;
         private readonly OnnxParsingService _onnxParsingService;
         private readonly OnnxPartitionerService _onnxPartitionerService;
+        private readonly HardwareMetricsService _hardwareMetricsService;
         private readonly HttpClient _httpClient;
         private readonly bool _ownsHttpClient;
         private readonly InputParsingService _inputParsingService;
@@ -57,7 +58,8 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
          InputParsingService inputParsingService,
           OutputParsingService outputParsingService,
           OnnxParsingService onnxParsingService,
-          OnnxPartitionerService onnxPartitionerService)
+          OnnxPartitionerService onnxPartitionerService,
+          HardwareMetricsService hardwareMetricsService)
         {
             _deviceIdentifierService = deviceIdentifierService ?? throw new ArgumentNullException(nameof(deviceIdentifierService));
             _onnxRuntimeService = onnxRuntimeService ?? throw new ArgumentNullException(nameof(onnxRuntimeService));
@@ -66,6 +68,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _onnxParsingService = onnxParsingService ?? throw new ArgumentNullException(nameof(onnxParsingService));
             _onnxPartitionerService = onnxPartitionerService ?? throw new ArgumentNullException(nameof(onnxPartitionerService));
+            _hardwareMetricsService = hardwareMetricsService ?? throw new ArgumentNullException(nameof(hardwareMetricsService));
         }
 
         public void Start()
@@ -218,7 +221,23 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                         _hubConnection = connection;
                     }
 
-                    await connection.InvokeAsync("JoinAvailableTasks", string.Empty, "Provider", cancellationToken).ConfigureAwait(false);
+                    // Collect hardware metrics to get total RAM
+                    long? totalRamBytes = null;
+                    try
+                    {
+                        var metrics = await _hardwareMetricsService.CollectAsync(cancellationToken).ConfigureAwait(false);
+                        if (metrics.MemoryTotalGb.HasValue)
+                        {
+                            // Convert GB to bytes
+                            totalRamBytes = (long)(metrics.MemoryTotalGb.Value * 1024 * 1024 * 1024);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[BackgroundWorkService] Failed to collect hardware metrics: {ex}");
+                    }
+
+                    await connection.InvokeAsync("JoinAvailableTasks", string.Empty, "Provider", totalRamBytes, cancellationToken).ConfigureAwait(false);
 
                     while (!cancellationToken.IsCancellationRequested)
                     {
@@ -383,8 +402,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
                 var model = _onnxParsingService.Deserialize(modelBytes);
 
+                var availableMemoryBytes = Convert.ToInt64(_hardwareMetricsService.GetMemoryInfo().totalGb);
 
-                var partitions = _onnxPartitionerService.PartitionModel(model, inputs);
+                var partitions = _onnxPartitionerService.PartitionModel(model, inputs, availableMemoryBytes);
 
                 var partitionnedModels = _onnxParsingService.CreateSubModel(model, partitions.RootNodes.First());
 
