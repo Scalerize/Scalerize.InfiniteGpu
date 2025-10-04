@@ -22,7 +22,7 @@
 param(
     [Parameter(Mandatory=$false)]
     [ValidateSet("Debug", "Release")]
-    [string]$Configuration = "Debug",
+    [string]$Configuration = "Release",
     
     [Parameter(Mandatory=$false)]
     [ValidateSet("x64", "x86", "ARM64")]
