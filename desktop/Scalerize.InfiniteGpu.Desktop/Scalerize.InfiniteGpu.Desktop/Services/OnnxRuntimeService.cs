@@ -171,6 +171,27 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 _ => value.Value
             };
         }
+
+
+        public ExecutionProviderDevice GetExecutionProvider()
+        {
+            var catalog = ExecutionProviderCatalog.GetDefault();
+            var ep = catalog.FindAllProviders().First();
+            switch (ep.Name)
+            {
+                case "NvTensorRtRtxExecutionProvider":
+                    return ExecutionProviderDevice.Gpu; 
+                case "OpenVINOExecutionProvider":
+                case "QNNExecutionProvider":
+                case "VitisAIExecutionProvider":
+                    return ExecutionProviderDevice.Npu; 
+                case "CPUExecutionProvider":
+                    return ExecutionProviderDevice.Cpu; 
+                default:
+                    return ExecutionProviderDevice.Cpu; 
+            }
+        }
+
     }
 
     public sealed record OnnxInferenceResult(IReadOnlyList<OnnxInferenceOutput> Outputs);

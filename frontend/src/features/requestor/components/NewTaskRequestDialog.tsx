@@ -20,6 +20,7 @@ import { FileDropzone } from "../../../shared/components/FileDropzone";
 import { DialogShell } from "../../../shared/components/DialogShell";
 import { appQueryClient } from "../../../shared/providers/queryClient";
 import { invalidateMyTasksQueryKey } from "../queries/useMyTasksQuery";
+import { DesktopBridge, type OnnxModelParseResult } from "../../../shared/services/DesktopBridge";
 
 interface NewTaskRequestDialogProps {
   open: boolean;
@@ -140,6 +141,10 @@ export const NewTaskRequestDialog = ({
   const trainDatasetUrlFieldId = useId();
   const validationDatasetUrlFieldId = useId();
 
+  // Wizard step management
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const totalSteps = 3;
+
   const [selectedMode, setSelectedMode] = useState<"inference" | "training">(
     "inference"
   );
@@ -176,9 +181,15 @@ export const NewTaskRequestDialog = ({
     batchSize: 32,
     learningRate: "",
   });
+  const [onnxFile, setOnnxFile] = useState<File | null>(null);
+  const [onnxFileName, setOnnxFileName] = useState<string | null>(null);
+  const [taskName, setTaskName] = useState<string>("");
+  const [parsedModel, setParsedModel] = useState<OnnxModelParseResult | null>(null);
+  const [isParsingModel, setIsParsingModel] = useState<boolean>(false);
 
   useEffect(() => {
     if (!open) {
+      setCurrentStep(1);
       setClientTaskId(crypto.randomUUID());
       setClientSubtaskId(crypto.randomUUID());
       setSubmissionStage("");
@@ -186,8 +197,136 @@ export const NewTaskRequestDialog = ({
       setIsSubmitting(false);
       setInferenceBindings([createInferenceBinding()]);
       setOutputBindings([createOutputBinding()]);
+      setOnnxFile(null);
+      setOnnxFileName(null);
+      setTaskName("");
     }
   }, [open]);
+
+  const handleNextStep = async () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep((prev) => prev + 1);
+      setSubmissionError(null);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+      setSubmissionError(null);
+    }
+  };
+
+  const validateCurrentStep = (): boolean => {
+    // Step 1: Model configuration
+    if (currentStep === 1) {
+      if (!taskName || !taskName.trim()) {
+        setSubmissionError("Please provide a name for the task before proceeding.");
+        return false;
+      }
+      
+      if (!onnxFile) {
+        setSubmissionError("Please attach an ONNX artifact before proceeding.");
+        return false;
+      }
+      return true;
+    }
+    
+    // Step 2: Input bindings
+    if (currentStep === 2 && selectedMode === "inference") {
+      if (inferenceBindingMode === "manual") {
+        for (const binding of inferenceBindings) {
+          if (!binding.tensorName.trim()) {
+            setSubmissionError("Every inference binding requires a tensor name.");
+            return false;
+          }
+          if (!binding.file) {
+            setSubmissionError(`Binding "${binding.tensorName}" is missing an uploaded file.`);
+            return false;
+          }
+        }
+      } else {
+        // API mode - just validate tensor names
+        for (const binding of inferenceBindings) {
+          if (!binding.tensorName.trim()) {
+            setSubmissionError("Every inference binding requires a tensor name.");
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+    
+    // Step 3: Output bindings
+    if (currentStep === 3 && selectedMode === "inference") {
+      for (const output of outputBindings) {
+        if (!output.tensorName.trim()) {
+          setSubmissionError("Every output binding requires a tensor name.");
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    return true;
+  };
+
+  const handleStepNavigation = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (!validateCurrentStep()) {
+      return;
+    }
+
+    // If moving from step 1, parse the ONNX model
+    if (currentStep === 1 && onnxFile && DesktopBridge.isAvailable()) {
+      try {
+        setIsParsingModel(true);
+        setSubmissionError(null);
+        
+        // Parse the model by passing the File object directly
+        // The DesktopBridge will use postMessageWithAdditionalObjects to send it
+        const result = await DesktopBridge.parseOnnxModel(onnxFile);
+        setParsedModel(result);
+        
+        // Auto-populate input bindings from parsed model
+        if (result.inputs && result.inputs.length > 0) {
+          const newBindings = result.inputs.map((input) => ({
+            id: `binding-${Math.random().toString(36).slice(2, 10)}`,
+            tensorName: input.name,
+            payloadType: "binary" as const,
+            textPayload: "",
+            fileName: null,
+            file: null,
+            maxLength: 512,
+          }));
+          setInferenceBindings(newBindings);
+        }
+        
+        // Auto-populate output bindings from parsed model
+        if (result.outputs && result.outputs.length > 0) {
+          const newOutputs = result.outputs.map((output) => ({
+            id: `output-${Math.random().toString(36).slice(2, 10)}`,
+            tensorName: output.name,
+            payloadType: "binary" as const,
+            fileFormat: "npz" as const,
+          }));
+          setOutputBindings(newOutputs);
+        }
+      } catch (error) {
+        setSubmissionError(
+          error instanceof Error
+            ? `Failed to parse ONNX model: ${error.message}`
+            : "Failed to parse ONNX model. Please verify the file is a valid ONNX model."
+        );
+        setIsParsingModel(false);
+        return;
+      } finally {
+        setIsParsingModel(false);
+      }
+    }
+
+    await handleNextStep();
+  };
 
   const handleInferenceBindingChange = <Field extends keyof InferenceBinding>(
     id: string,
@@ -298,10 +437,6 @@ export const NewTaskRequestDialog = ({
       return;
     }
 
-    const formElement = event.currentTarget;
-    const formData = new FormData(formElement);
-    const onnxFile = formData.get("onnxFile") as File | null;
-
     if (!onnxFile) {
       setSubmissionError("Please attach an ONNX artifact before dispatching.");
       return;
@@ -339,57 +474,44 @@ export const NewTaskRequestDialog = ({
             throw new Error("Every inference binding requires a tensor name.");
           }
 
-          const payloadType = mapPayloadType[binding.payloadType];
-
-          if (binding.payloadType === "binary") {
-            if (!binding.file) {
-              throw new Error(
-                `Binary binding "${binding.tensorName}" is missing an uploaded tensor.`
-              );
-            }
-
-            setSubmissionStage(
-              `Preparing upload slot for tensor "${binding.tensorName}"…`
+          if (!binding.file) {
+            throw new Error(
+              `Binding "${binding.tensorName}" is missing an uploaded file.`
             );
-            const tensorFileExtension =
-              getFileExtension(binding.file.name ?? "") || "bin";
-
-            const tensorUploadUrl = await generateTaskUploadUrl({
-              taskId,
-              subtaskId: resolvedSubtaskId,
-              inputName: binding.tensorName,
-              fileExtension: tensorFileExtension,
-              fileType: TaskUploadFileType.Input,
-            });
-
-            setSubmissionStage(
-              `Streaming tensor "${binding.tensorName}" to Azure…`
-            );
-            await uploadFileToSas(tensorUploadUrl.uploadUri, binding.file);
-
-            bindings.push({
-              tensorName: binding.tensorName,
-              payloadType,
-              payload: null,
-              fileUrl: tensorUploadUrl.blobUri,
-            });
-          } else {
-            const payload = binding.textPayload.trim();
-            if (!payload) {
-              throw new Error(
-                `Binding "${binding.tensorName}" must include a payload.`
-              );
-            }
-
-            bindings.push({
-              tensorName: binding.tensorName,
-              payloadType,
-              payload,
-              fileUrl: null,
-              maxLength: binding.payloadType === "text" ? binding.maxLength : undefined,
-              padding: binding.payloadType === "text" ? true : undefined,
-            });
           }
+
+          setSubmissionStage(
+            `Preparing upload slot for "${binding.tensorName}"…`
+          );
+          
+          // Determine file extension based on payload type
+          let tensorFileExtension = getFileExtension(binding.file.name ?? "");
+          if (!tensorFileExtension) {
+            tensorFileExtension = binding.payloadType === "json" ? "json" :
+                                 binding.payloadType === "text" ? "txt" : "bin";
+          }
+
+          const tensorUploadUrl = await generateTaskUploadUrl({
+            taskId,
+            subtaskId: resolvedSubtaskId,
+            inputName: binding.tensorName,
+            fileExtension: tensorFileExtension,
+            fileType: TaskUploadFileType.Input,
+          });
+
+          setSubmissionStage(
+            `Uploading "${binding.tensorName}"…`
+          );
+          await uploadFileToSas(tensorUploadUrl.uploadUri, binding.file);
+
+          bindings.push({
+            tensorName: binding.tensorName,
+            payloadType: "Binary",
+            payload: null,
+            fileUrl: tensorUploadUrl.blobUri,
+            maxLength: binding.payloadType === "text" ? binding.maxLength : undefined,
+            padding: binding.payloadType === "text" ? true : undefined,
+          });
         }
       }
 
@@ -438,6 +560,12 @@ export const NewTaskRequestDialog = ({
     }
   };
 
+  const stepTitles = [
+    "Model Configuration",
+    "Input Bindings",
+    "Output Bindings",
+  ];
+
   return (
     <DialogShell
       open={open}
@@ -450,9 +578,67 @@ export const NewTaskRequestDialog = ({
     >
       <form
         onSubmit={handleSubmit}
-        className="relative space-y-8"
+        className="relative space-y-6"
         {...busyAriaProps}
       >
+        {/* Step Indicator */}
+        <div className="border-b border-slate-200 pb-6 dark:border-slate-700">
+          <div className="flex items-center mb-3">
+            {[1, 2, 3].map((step, index) => (
+              <div key={step} className="flex items-center flex-1">
+                {index > 0 && (
+                  <div
+                    className={`h-0.5 flex-1 ${
+                      step <= currentStep
+                        ? "bg-indigo-600 dark:bg-indigo-500"
+                        : "bg-slate-300 dark:bg-slate-600"
+                    }`}
+                  />
+                )}
+                <div
+                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border-2 font-semibold transition ${
+                    step < currentStep
+                      ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-500"
+                      : step === currentStep
+                      ? "border-indigo-600 bg-white text-indigo-600 dark:border-indigo-500 dark:bg-slate-800 dark:text-indigo-400"
+                      : "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
+                  }`}
+                >
+                  {step < currentStep ? "✓" : step}
+                </div>
+                {index < 2 && (
+                  <div
+                    className={`h-0.5 flex-1 ${
+                      step < currentStep
+                        ? "bg-indigo-600 dark:bg-indigo-500"
+                        : "bg-slate-300 dark:bg-slate-600"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex w-full">
+            {[1, 2, 3].map((step, index) => (
+              <div
+                key={step}
+                className={`flex-1 ${index === 1 ? 'text-center' : index === 2 ? 'text-right' : 'text-left'}`}
+              >
+                <div
+                  className={`text-xs font-semibold ${
+                    step === currentStep
+                      ? "text-indigo-600 dark:text-indigo-400"
+                      : step < currentStep
+                      ? "text-slate-600 dark:text-slate-400"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  {stepTitles[step - 1]}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         {isSubmitting ? (
           <div className="absolute inset-0 bottom-10 z-10 flex flex-col items-center justify-center gap-4 rounded-2xl bg-slate-100/70 backdrop-blur dark:bg-slate-900/70">
             <div className="h-12 w-12 animate-spin rounded-full border-2 border-indigo-900 border-t-transparent dark:border-indigo-400" />
@@ -467,6 +653,9 @@ export const NewTaskRequestDialog = ({
             </div>
           </div>
         ) : null}
+
+        {/* Step 1: Model Configuration */}
+        {currentStep === 1 && (
         <section className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
@@ -480,8 +669,11 @@ export const NewTaskRequestDialog = ({
                 id={nameFieldId}
                 name="name"
                 type="text"
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
                 placeholder="e.g. diffusion-sampler preview run"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
+                required
               />
             </div>
 
@@ -537,6 +729,11 @@ export const NewTaskRequestDialog = ({
                 </span>
               }
               helperText="Supports up to 2 GB, validated against latest opset."
+              selectedFileName={onnxFileName}
+              onFileSelect={(file) => {
+                setOnnxFile(file);
+                setOnnxFileName(file?.name ?? null);
+              }}
             />
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Plenty of ONNX models can be found at{" "}
@@ -551,8 +748,10 @@ export const NewTaskRequestDialog = ({
             </p>
           </div>
         </section>
+        )}
 
-        {selectedMode === "inference" && (
+        {/* Step 2: Input Bindings */}
+        {currentStep === 2 && selectedMode === "inference" && (
           <section
             className="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/30"
             aria-labelledby={`${inferenceSectionId}-label`}
@@ -643,82 +842,63 @@ export const NewTaskRequestDialog = ({
                         </div>
                       </div>
 
-                      {binding.payloadType !== "binary" ? (
-                        <>
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              {binding.payloadType === "json"
-                                ? "JSON payload"
-                                : "Text payload"}
-                            </label>
-                            <textarea
-                              name={`inferenceBindings[${index}].payload`}
-                              value={binding.textPayload}
-                              onChange={(event) =>
-                                handleInferenceBindingChange(
-                                  binding.id,
-                                  "textPayload",
-                                  event.target.value
-                                )
-                              }
-                              placeholder={
-                                binding.payloadType === "json"
-                                  ? "[[1, 2, 3], [4, 5, 6]]"
-                                  : "Provide plain text inputs"
-                              }
-                              className="h-32 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
-                              required
-                            />
-                            <p className="text-xs text-slate-400 dark:text-slate-500">
-                              {binding.payloadType === "json"
-                                ? "Ensure shape matches the model input signature. Arrays are validated server-side."
-                                : "Text will be automatically tokenized before inference. Configure max length below."}
-                            </p>
-                          </div>
-
-                          {binding.payloadType === "text" && (
-                            <div className="space-y-1">
-                              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                Max sequence length
-                              </label>
-                              <input
-                                type="number"
-                                min={1}
-                                max={8192}
-                                value={binding.maxLength}
-                                onChange={(event) =>
-                                  handleInferenceBindingChange(
-                                    binding.id,
-                                    "maxLength",
-                                    Number.parseInt(event.target.value, 10) || 512
-                                  )
-                                }
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
-                              />
-                              <p className="text-xs text-slate-400 dark:text-slate-500">
-                                Maximum tokens after tokenization. Text will be truncated if longer. Padding is enabled by default.
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Upload tensor
-                          </label>
-                          <FileDropzone
-                            inputId={`${binding.id}-file`}
-                            name={`inferenceBindings[${index}].file`}
-                            emptyState="Attach .npy, .npz tensor file or image, video files"
-                            helperText="Stored securely and streamed to inference workers."
-                            className="min-h-[140px] py-6"
-                            selectedFileName={binding.fileName}
-                            onFileSelect={(file) =>
-                              handleInferenceBindingFile(binding.id, file)
-                            }
-                          />
-                        </div>
-                      )}
+                      <div className="space-y-1">
+                       <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                         {binding.payloadType === "binary"
+                           ? "Upload tensor"
+                           : binding.payloadType === "json"
+                           ? "Upload JSON file"
+                           : "Upload text file"}
+                       </label>
+                       <FileDropzone
+                         inputId={`${binding.id}-file`}
+                         name={`inferenceBindings[${index}].file`}
+                         accept={
+                           binding.payloadType === "json"
+                             ? ".json"
+                             : binding.payloadType === "text"
+                             ? ".txt"
+                             : undefined
+                         }
+                         emptyState={
+                           binding.payloadType === "json"
+                             ? "Attach .json file"
+                             : binding.payloadType === "text"
+                             ? "Attach .txt file"
+                             : "Attach .npy, .npz tensor file or image, video files"
+                         }
+                         helperText="Stored securely and streamed to inference workers."
+                         className="min-h-[140px] py-6"
+                         selectedFileName={binding.fileName}
+                         onFileSelect={(file) =>
+                           handleInferenceBindingFile(binding.id, file)
+                         }
+                       />
+                       {binding.payloadType === "text" && (
+                         <div className="mt-3 space-y-1">
+                           <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                             Max sequence length
+                           </label>
+                           <input
+                             type="number"
+                             min={1}
+                             max={8192}
+                             value={binding.maxLength}
+                             onChange={(event) =>
+                               handleInferenceBindingChange(
+                                 binding.id,
+                                 "maxLength",
+                                 Number.parseInt(event.target.value, 10) || 512
+                               )
+                             }
+                             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
+                           />
+                           <p className="text-xs text-slate-400 dark:text-slate-500">
+                             Maximum tokens after tokenization. Text will be truncated if longer. Padding is enabled by default.
+                           </p>
+                         </div>
+                       )}
+                     </div>
 
                       <div className="flex justify-end">
                         <button
@@ -910,7 +1090,8 @@ export const NewTaskRequestDialog = ({
           </section>
         )}
 
-        {selectedMode === "inference" && (
+        {/* Step 3: Output Bindings */}
+        {currentStep === 3 && selectedMode === "inference" && (
           <section
             className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30"
             aria-labelledby="output-settings-label"
@@ -1000,6 +1181,8 @@ export const NewTaskRequestDialog = ({
                           )
                         }
                         options={[
+                          { value: "json", label: "JSON (.json)" },
+                          { value: "txt", label: "Text (.txt)" },
                           { value: "npy", label: "NumPy Array (.npy)" },
                           { value: "npz", label: "Compressed NumPy (.npz)" },
                           { value: "png", label: "PNG Image (.png)" },
@@ -1391,22 +1574,49 @@ export const NewTaskRequestDialog = ({
           </div>
         ) : null}
 
-        <footer className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-end dark:border-slate-700">
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isSubmitting}
-            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
-          >
-            Request execution
-          </button>
+        <footer className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
+          <div className="flex gap-3 sm:flex-row flex-col">
+            <button
+              type="button"
+              onClick={onDismiss}
+              disabled={isSubmitting}
+              className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
+          
+          <div className="flex gap-3 sm:flex-row flex-col">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                disabled={isSubmitting}
+                className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Previous
+              </button>
+            )}
+            
+            {currentStep < totalSteps ? (
+              <button
+                type="button"
+                onClick={handleStepNavigation}
+                disabled={isSubmitting || isParsingModel}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
+              >
+                {isParsingModel ? "Parsing model..." : "Next"}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
+              >
+                Request execution
+              </button>
+            )}
+          </div>
         </footer>
       </form>
     </DialogShell>
