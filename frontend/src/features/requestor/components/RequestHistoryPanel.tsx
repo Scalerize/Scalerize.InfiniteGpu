@@ -157,9 +157,6 @@ const formatTaskLabel = (task: RequestorTaskDto) => {
   return `${baseLabel} workload`;
 };
 
-const formatWithLeadingZero = (value: number) =>
-  value >= 10 ? value.toString() : value.toString().padStart(2, "0");
-
 export const RequestHistoryPanel = () => {
   const [newTaskDialogOpen, setNewTaskDialogOpen] = useState(false);
   const [subtasksDialogState, setSubtasksDialogState] = useState<{
@@ -386,7 +383,7 @@ export const RequestHistoryPanel = () => {
         <MetricCard
           icon={<Loader2 className="h-5 w-5 text-indigo-500" />}
           label="Active requests"
-          value={metrics.activeLabel}
+          value={metrics.activeLabel.toString()}
           helper={metrics.activeHelper}
         />
         <MetricCard

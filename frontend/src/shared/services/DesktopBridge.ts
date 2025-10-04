@@ -35,6 +35,7 @@ interface HardwareMetricsRaw extends Partial<Record<keyof HardwareMetrics, unkno
 declare global {
   interface Window {
     DesktopBridge?: DesktopBridgeApi;
+    chrome: any;
   }
 }
 

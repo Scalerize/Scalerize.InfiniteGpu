@@ -184,7 +184,7 @@ export const NewTaskRequestDialog = ({
   const [onnxFile, setOnnxFile] = useState<File | null>(null);
   const [onnxFileName, setOnnxFileName] = useState<string | null>(null);
   const [taskName, setTaskName] = useState<string>("");
-  const [parsedModel, setParsedModel] = useState<OnnxModelParseResult | null>(null);
+  const [, setParsedModel] = useState<OnnxModelParseResult | null>(null);
   const [isParsingModel, setIsParsingModel] = useState<boolean>(false);
 
   useEffect(() => {
