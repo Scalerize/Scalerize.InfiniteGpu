@@ -441,10 +441,6 @@ export const NewTaskRequestDialog = ({
       return;
     }
 
-    const formElement = event.currentTarget;
-    const formData = new FormData(formElement);
-    const onnxFile = formData.get("onnxFile") as File | null;
-
     if (!onnxFile) {
       setSubmissionError("Please attach an ONNX artifact before dispatching.");
       return;
@@ -506,7 +502,7 @@ export const NewTaskRequestDialog = ({
             });
 
             setSubmissionStage(
-              `Streaming tensor "${binding.tensorName}" to Azure…`
+              `Streaming tensor "${binding.tensorName}"…`
             );
             await uploadFileToSas(tensorUploadUrl.uploadUri, binding.file);
 
