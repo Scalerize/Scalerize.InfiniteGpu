@@ -140,6 +140,10 @@ export const NewTaskRequestDialog = ({
   const trainDatasetUrlFieldId = useId();
   const validationDatasetUrlFieldId = useId();
 
+  // Wizard step management
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const totalSteps = 3;
+
   const [selectedMode, setSelectedMode] = useState<"inference" | "training">(
     "inference"
   );
@@ -176,9 +180,13 @@ export const NewTaskRequestDialog = ({
     batchSize: 32,
     learningRate: "",
   });
+  const [onnxFile, setOnnxFile] = useState<File | null>(null);
+  const [onnxFileName, setOnnxFileName] = useState<string | null>(null);
+  const [taskName, setTaskName] = useState<string>("");
 
   useEffect(() => {
     if (!open) {
+      setCurrentStep(1);
       setClientTaskId(crypto.randomUUID());
       setClientSubtaskId(crypto.randomUUID());
       setSubmissionStage("");
@@ -186,8 +194,90 @@ export const NewTaskRequestDialog = ({
       setIsSubmitting(false);
       setInferenceBindings([createInferenceBinding()]);
       setOutputBindings([createOutputBinding()]);
+      setOnnxFile(null);
+      setOnnxFileName(null);
+      setTaskName("");
     }
   }, [open]);
+
+  const handleNextStep = () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep((prev) => prev + 1);
+      setSubmissionError(null);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+      setSubmissionError(null);
+    }
+  };
+
+  const validateCurrentStep = (): boolean => {
+    // Step 1: Model configuration
+    if (currentStep === 1) {
+      if (!taskName || !taskName.trim()) {
+        setSubmissionError("Please provide a name for the task before proceeding.");
+        return false;
+      }
+      
+      if (!onnxFile) {
+        setSubmissionError("Please attach an ONNX artifact before proceeding.");
+        return false;
+      }
+      return true;
+    }
+    
+    // Step 2: Input bindings
+    if (currentStep === 2 && selectedMode === "inference") {
+      if (inferenceBindingMode === "manual") {
+        for (const binding of inferenceBindings) {
+          if (!binding.tensorName.trim()) {
+            setSubmissionError("Every inference binding requires a tensor name.");
+            return false;
+          }
+          if (binding.payloadType === "binary" && !binding.file) {
+            setSubmissionError(`Binary binding "${binding.tensorName}" is missing an uploaded tensor.`);
+            return false;
+          }
+          if (binding.payloadType !== "binary" && !binding.textPayload.trim()) {
+            setSubmissionError(`Binding "${binding.tensorName}" must include a payload.`);
+            return false;
+          }
+        }
+      } else {
+        // API mode - just validate tensor names
+        for (const binding of inferenceBindings) {
+          if (!binding.tensorName.trim()) {
+            setSubmissionError("Every inference binding requires a tensor name.");
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+    
+    // Step 3: Output bindings
+    if (currentStep === 3 && selectedMode === "inference") {
+      for (const output of outputBindings) {
+        if (!output.tensorName.trim()) {
+          setSubmissionError("Every output binding requires a tensor name.");
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    return true;
+  };
+
+  const handleStepNavigation = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (validateCurrentStep()) {
+      handleNextStep();
+    }
+  };
 
   const handleInferenceBindingChange = <Field extends keyof InferenceBinding>(
     id: string,
@@ -438,6 +528,12 @@ export const NewTaskRequestDialog = ({
     }
   };
 
+  const stepTitles = [
+    "Model Configuration",
+    "Input Bindings",
+    "Output Bindings",
+  ];
+
   return (
     <DialogShell
       open={open}
@@ -450,9 +546,67 @@ export const NewTaskRequestDialog = ({
     >
       <form
         onSubmit={handleSubmit}
-        className="relative space-y-8"
+        className="relative space-y-6"
         {...busyAriaProps}
       >
+        {/* Step Indicator */}
+        <div className="border-b border-slate-200 pb-6 dark:border-slate-700">
+          <div className="flex items-center mb-3">
+            {[1, 2, 3].map((step, index) => (
+              <div key={step} className="flex items-center flex-1">
+                {index > 0 && (
+                  <div
+                    className={`h-0.5 flex-1 ${
+                      step <= currentStep
+                        ? "bg-indigo-600 dark:bg-indigo-500"
+                        : "bg-slate-300 dark:bg-slate-600"
+                    }`}
+                  />
+                )}
+                <div
+                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border-2 font-semibold transition ${
+                    step < currentStep
+                      ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-500"
+                      : step === currentStep
+                      ? "border-indigo-600 bg-white text-indigo-600 dark:border-indigo-500 dark:bg-slate-800 dark:text-indigo-400"
+                      : "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
+                  }`}
+                >
+                  {step < currentStep ? "✓" : step}
+                </div>
+                {index < 2 && (
+                  <div
+                    className={`h-0.5 flex-1 ${
+                      step < currentStep
+                        ? "bg-indigo-600 dark:bg-indigo-500"
+                        : "bg-slate-300 dark:bg-slate-600"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex w-full">
+            {[1, 2, 3].map((step, index) => (
+              <div
+                key={step}
+                className={`flex-1 ${index === 1 ? 'text-center' : index === 2 ? 'text-right' : 'text-left'}`}
+              >
+                <div
+                  className={`text-xs font-semibold ${
+                    step === currentStep
+                      ? "text-indigo-600 dark:text-indigo-400"
+                      : step < currentStep
+                      ? "text-slate-600 dark:text-slate-400"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  {stepTitles[step - 1]}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         {isSubmitting ? (
           <div className="absolute inset-0 bottom-10 z-10 flex flex-col items-center justify-center gap-4 rounded-2xl bg-slate-100/70 backdrop-blur dark:bg-slate-900/70">
             <div className="h-12 w-12 animate-spin rounded-full border-2 border-indigo-900 border-t-transparent dark:border-indigo-400" />
@@ -467,6 +621,9 @@ export const NewTaskRequestDialog = ({
             </div>
           </div>
         ) : null}
+
+        {/* Step 1: Model Configuration */}
+        {currentStep === 1 && (
         <section className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
@@ -480,8 +637,11 @@ export const NewTaskRequestDialog = ({
                 id={nameFieldId}
                 name="name"
                 type="text"
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
                 placeholder="e.g. diffusion-sampler preview run"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring focus:ring-indigo-200/60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/60"
+                required
               />
             </div>
 
@@ -537,6 +697,11 @@ export const NewTaskRequestDialog = ({
                 </span>
               }
               helperText="Supports up to 2 GB, validated against latest opset."
+              selectedFileName={onnxFileName}
+              onFileSelect={(file) => {
+                setOnnxFile(file);
+                setOnnxFileName(file?.name ?? null);
+              }}
             />
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Plenty of ONNX models can be found at{" "}
@@ -551,8 +716,10 @@ export const NewTaskRequestDialog = ({
             </p>
           </div>
         </section>
+        )}
 
-        {selectedMode === "inference" && (
+        {/* Step 2: Input Bindings */}
+        {currentStep === 2 && selectedMode === "inference" && (
           <section
             className="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/30"
             aria-labelledby={`${inferenceSectionId}-label`}
@@ -910,7 +1077,8 @@ export const NewTaskRequestDialog = ({
           </section>
         )}
 
-        {selectedMode === "inference" && (
+        {/* Step 3: Output Bindings */}
+        {currentStep === 3 && selectedMode === "inference" && (
           <section
             className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30"
             aria-labelledby="output-settings-label"
@@ -1391,22 +1559,49 @@ export const NewTaskRequestDialog = ({
           </div>
         ) : null}
 
-        <footer className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-end dark:border-slate-700">
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isSubmitting}
-            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
-          >
-            Request execution
-          </button>
+        <footer className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
+          <div className="flex gap-3 sm:flex-row flex-col">
+            <button
+              type="button"
+              onClick={onDismiss}
+              disabled={isSubmitting}
+              className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
+          
+          <div className="flex gap-3 sm:flex-row flex-col">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                disabled={isSubmitting}
+                className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Previous
+              </button>
+            )}
+            
+            {currentStep < totalSteps ? (
+              <button
+                type="button"
+                onClick={handleStepNavigation}
+                disabled={isSubmitting}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400 sm:w-auto dark:bg-indigo-700 dark:hover:bg-indigo-600 dark:disabled:bg-indigo-800"
+              >
+                Request execution
+              </button>
+            )}
+          </div>
         </footer>
       </form>
     </DialogShell>
