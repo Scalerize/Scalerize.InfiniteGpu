@@ -851,7 +851,7 @@ public sealed class TaskAssignmentService
             double? durationSeconds = null;
             decimal? costUsd = null;
             string? device = null;
-            long? availableMemoryBytes = null;
+            long availableMemoryBytes = 0;
 
             if (metricsElement.TryGetProperty("durationSeconds", out var durationElement) &&
                 durationElement.TryGetDouble(out var durationValue))
