@@ -851,7 +851,7 @@ public sealed class TaskAssignmentService
             double? durationSeconds = null;
             decimal? costUsd = null;
             string? device = null;
-            long availableMemoryBytes = 0;
+            long availableMemoryGBytes = 0;
 
             if (metricsElement.TryGetProperty("durationSeconds", out var durationElement) &&
                 durationElement.TryGetDouble(out var durationValue))
@@ -868,12 +868,12 @@ public sealed class TaskAssignmentService
             if (metricsElement.TryGetProperty("availableMemoryGBytes", out var memoryElement) &&
                 memoryElement.TryGetInt64(out var memoryValue))
             {
-                availableMemoryBytes = memoryValue;
+                availableMemoryGBytes = memoryValue;
             }
 
             if (durationSeconds.HasValue && !string.IsNullOrWhiteSpace(device))
             {
-                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device, availableMemoryBytes);
+                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device, availableMemoryGBytes);
             }
 
             if (durationSeconds is null && costUsd is null)
