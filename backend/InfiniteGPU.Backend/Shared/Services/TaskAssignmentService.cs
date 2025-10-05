@@ -851,6 +851,7 @@ public sealed class TaskAssignmentService
             double? durationSeconds = null;
             decimal? costUsd = null;
             string? device = null;
+            long? availableMemoryBytes = null;
 
             if (metricsElement.TryGetProperty("durationSeconds", out var durationElement) &&
                 durationElement.TryGetDouble(out var durationValue))
@@ -864,9 +865,15 @@ public sealed class TaskAssignmentService
                 device = deviceElement.GetString();
             }
 
+            if (metricsElement.TryGetProperty("availableMemoryGBytes", out var memoryElement) &&
+                memoryElement.TryGetInt64(out var memoryValue))
+            {
+                availableMemoryBytes = memoryValue;
+            }
+
             if (durationSeconds.HasValue && !string.IsNullOrWhiteSpace(device))
             {
-                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device);
+                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device, availableMemoryBytes);
             }
 
             if (durationSeconds is null && costUsd is null)
@@ -882,16 +889,36 @@ public sealed class TaskAssignmentService
         }
     }
 
-    private static decimal CalculateCost(TimeSpan duration, string device)
+    private static decimal CalculateCost(TimeSpan duration, string device, long availableMemoryGBytes)
     {
         var normalizedDevice = device?.Trim().ToLowerInvariant() ?? "cpu";
-        
+
         if (!CostRatesPerSecond.TryGetValue(normalizedDevice, out var rate))
         {
             rate = CostRatesPerSecond["cpu"];
         }
 
-        var cost = rate * (decimal)duration.TotalSeconds;
+        var baseCost = rate * (decimal)duration.TotalSeconds;
+
+        decimal memoryMultiplier = 1.0m;
+        if (availableMemoryGBytes >= 64)
+        {
+            memoryMultiplier = 2m;
+        }
+        else if (availableMemoryGBytes >= 32)
+        {
+            memoryMultiplier = 1.5m;
+        }
+        else if (availableMemoryGBytes >= 16)
+        {
+            memoryMultiplier = 1.3m;
+        }
+        else if (availableMemoryGBytes >= 8)
+        {
+            memoryMultiplier = 1.2m;
+        }
+
+        var cost = baseCost * memoryMultiplier;
         return Math.Round(cost, 4, MidpointRounding.AwayFromZero);
     }
 

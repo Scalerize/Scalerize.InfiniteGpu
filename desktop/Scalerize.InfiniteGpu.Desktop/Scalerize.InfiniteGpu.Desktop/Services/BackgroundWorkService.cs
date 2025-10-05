@@ -412,7 +412,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     cancellationToken);
 
                 stopwatch.Stop();
-
+                 
                 var resultPayload = new
                 {
                     subtaskId = subtask.Id,
@@ -420,7 +420,8 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     metrics = new
                     {
                         durationSeconds = stopwatch.Elapsed.TotalSeconds,
-                        device = _onnxRuntimeService.GetExecutionProvider().ToString().ToLowerInvariant()
+                        device = _onnxRuntimeService.GetExecutionProvider().ToString().ToLowerInvariant(),
+                        availableMemoryBytes = _hardwareMetricsService.GetMemoryInfo().totalGb.Value
                     },
                     outputs = processedOutputs
                 };
