@@ -421,7 +421,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     {
                         durationSeconds = stopwatch.Elapsed.TotalSeconds,
                         device = _onnxRuntimeService.GetExecutionProvider().ToString().ToLowerInvariant(),
-                        availableMemoryGBytes = _hardwareMetricsService.GetMemoryInfo().totalGb.Value
+                        memoryGBytes = _hardwareMetricsService.GetMemoryInfo().totalGb.Value
                     },
                     outputs = processedOutputs
                 };

@@ -851,7 +851,7 @@ public sealed class TaskAssignmentService
             double? durationSeconds = null;
             decimal? costUsd = null;
             string? device = null;
-            long availableMemoryGBytes = 0;
+            long memoryGBytes = 0;
 
             if (metricsElement.TryGetProperty("durationSeconds", out var durationElement) &&
                 durationElement.TryGetDouble(out var durationValue))
@@ -865,15 +865,15 @@ public sealed class TaskAssignmentService
                 device = deviceElement.GetString();
             }
 
-            if (metricsElement.TryGetProperty("availableMemoryGBytes", out var memoryElement) &&
+            if (metricsElement.TryGetProperty("memoryGBytes", out var memoryElement) &&
                 memoryElement.TryGetInt64(out var memoryValue))
             {
-                availableMemoryGBytes = memoryValue;
+                memoryGBytes = memoryValue;
             }
 
             if (durationSeconds.HasValue && !string.IsNullOrWhiteSpace(device))
             {
-                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device, availableMemoryGBytes);
+                costUsd = CalculateCost(TimeSpan.FromSeconds(durationSeconds.Value), device, memoryGBytes);
             }
 
             if (durationSeconds is null && costUsd is null)
@@ -889,7 +889,7 @@ public sealed class TaskAssignmentService
         }
     }
 
-    private static decimal CalculateCost(TimeSpan duration, string device, long availableMemoryGBytes)
+    private static decimal CalculateCost(TimeSpan duration, string device, long memoryGBytes)
     {
         var normalizedDevice = device?.Trim().ToLowerInvariant() ?? "cpu";
 
@@ -901,19 +901,19 @@ public sealed class TaskAssignmentService
         var baseCost = rate * (decimal)duration.TotalSeconds;
 
         decimal memoryMultiplier = 1.0m;
-        if (availableMemoryGBytes >= 64)
+        if (memoryGBytes >= 64)
         {
-            memoryMultiplier = 2m;
+            memoryMultiplier = 1.7m;
         }
-        else if (availableMemoryGBytes >= 32)
+        else if (memoryGBytes >= 32)
         {
             memoryMultiplier = 1.5m;
         }
-        else if (availableMemoryGBytes >= 16)
+        else if (memoryGBytes >= 16)
         {
             memoryMultiplier = 1.3m;
         }
-        else if (availableMemoryGBytes >= 8)
+        else if (memoryGBytes >= 8)
         {
             memoryMultiplier = 1.2m;
         }
