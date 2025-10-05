@@ -21,8 +21,8 @@ public sealed class TaskAssignmentService
     private static readonly IReadOnlyDictionary<string, decimal> CostRatesPerSecond = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
     {
         ["cpu"] = 0.0002m,
-        ["gpu"] = 0.0009m,
-        ["npu"] = 0.0010m
+        ["gpu"] = 0.0005m,
+        ["npu"] = 0.0006m
     };
 
     private readonly AppDbContext _context;
