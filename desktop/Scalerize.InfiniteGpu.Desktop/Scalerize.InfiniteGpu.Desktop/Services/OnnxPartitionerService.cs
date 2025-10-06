@@ -113,6 +113,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
     public class OnnxPartitionerService
     {
         private readonly OnnxParsingService _parsingService;
+        private readonly OnnxSizeService _sizeService;
         private const long DEFAULT_MEMORY_THRESHOLD_BYTES = 3L * 1024 * 1024 * 1024;
         
         // Minimum partition gain threshold (as percentage of total model size)
@@ -122,9 +123,115 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         // Maximum allowed edge cut ratio (communication overhead)
         private const double MAX_EDGE_CUT_RATIO = 0.3; // 30%
 
-        public OnnxPartitionerService(OnnxParsingService parsingService)
+        public OnnxPartitionerService(OnnxParsingService parsingService, OnnxSizeService sizeService)
         {
             _parsingService = parsingService ?? throw new ArgumentNullException(nameof(parsingService));
+            _sizeService = sizeService ?? throw new ArgumentNullException(nameof(sizeService));
+        }
+
+        /// <summary>
+        /// Represents a partition along a dynamic input dimension
+        /// </summary>
+        public class InputPartition
+        {
+            /// <summary>
+            /// The input name being partitioned
+            /// </summary>
+            public required string InputName { get; set; }
+            
+            /// <summary>
+            /// The dimension index being partitioned (e.g., 0 for batch dimension)
+            /// </summary>
+            public int DimensionIndex { get; set; }
+            
+            /// <summary>
+            /// The dimension parameter name (e.g., "batch_size")
+            /// </summary>
+            public required string DimensionParam { get; set; }
+            
+            /// <summary>
+            /// Number of partitions along this dimension
+            /// </summary>
+            public int PartitionCount { get; set; }
+            
+            /// <summary>
+            /// Estimated memory per partition
+            /// </summary>
+            public long MemoryPerPartition { get; set; }
+        }
+
+        /// <summary>
+        /// Attempts to partition the input along dynamic dimensions if total memory exceeds threshold
+        /// </summary>
+        /// <param name="model">The ONNX model</param>
+        /// <param name="inputs">List of inputs with actual dimensions</param>
+        /// <param name="memoryThresholdBytes">Memory threshold for triggering partitioning (default: 3GB)</param>
+        /// <returns>InputPartition if partitioning is possible and beneficial, null otherwise</returns>
+        public InputPartition? PartitionInput(
+            Onnx.ModelProto model,
+            List<NamedOnnxValue> inputs,
+            long memoryThresholdBytes = DEFAULT_MEMORY_THRESHOLD_BYTES)
+        {
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+            
+            if (inputs == null || inputs.Count == 0)
+                return null;
+
+            var inputDimensions = inputs
+                .ToDictionary(x => x.Name, x => x.AsTensor<float>().Dimensions.ToArray());
+
+            // Calculate total memory footprint including all downstream operations
+            long totalMemory = _sizeService.CalculateModelMemorySize(model, inputDimensions);
+            
+            // Only partition if memory exceeds threshold
+            if (totalMemory <= memoryThresholdBytes)
+                return null;
+
+            // Find dynamic dimensions in inputs
+            foreach (var input in model.Graph.Input)
+            {
+                if (input.Type?.TensorType?.Shape == null)
+                    continue;
+
+                for (int dimIdx = 0; dimIdx < input.Type.TensorType.Shape.Dim.Count; dimIdx++)
+                {
+                    var dim = input.Type.TensorType.Shape.Dim[dimIdx];
+                    
+                    // Check if this is a dynamic dimension
+                    if (!string.IsNullOrEmpty(dim.DimParam))
+                    {
+                        // Get actual dimension value from input
+                        if (inputDimensions.TryGetValue(input.Name, out int[] actualDims) &&
+                            dimIdx < actualDims.Length &&
+                            actualDims[dimIdx] > 1)
+                        {
+                            // Calculate how many partitions we need
+                            int partitionCount = (int)Math.Ceiling((double)totalMemory / memoryThresholdBytes);
+                            
+                            // Ensure partition count doesn't exceed the dimension size
+                            partitionCount = Math.Min(partitionCount, actualDims[dimIdx]);
+                            
+                            if (partitionCount > 1)
+                            {
+                                // Calculate memory per partition
+                                long memoryPerPartition = totalMemory / partitionCount;
+                                
+                                return new InputPartition
+                                {
+                                    InputName = input.Name,
+                                    DimensionIndex = dimIdx,
+                                    DimensionParam = dim.DimParam,
+                                    PartitionCount = partitionCount,
+                                    MemoryPerPartition = memoryPerPartition
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
         
         /// <summary>
@@ -195,7 +302,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             var graph = new PartitionGraph();
              
-            long totalMemoryBytes = CalculateModelMemorySize(model, inputDimensions);
+            long totalMemoryBytes = _sizeService.CalculateModelMemorySize(model, inputDimensions);
             graph.TotalModelMemoryBytes = totalMemoryBytes;
 
             graph.IsPartitioned = true;
@@ -220,156 +327,6 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             return graph;
         }
 
-        /// <summary>
-        /// Calculates the total memory size required by the model
-        /// </summary>
-        private long CalculateModelMemorySize(Onnx.ModelProto model, Dictionary<string, int[]> inputDimensions)
-        {
-            long totalBytes = 0;
-
-            // Calculate memory for input tensors
-            foreach (var input in model.Graph.Input)
-            {
-                long inputSize = CalculateInputTensorSize(input, inputDimensions);
-                totalBytes += inputSize;
-            }
-
-            // Calculate memory for initializers (weights)
-            foreach (var initializer in model.Graph.Initializer)
-            {
-                totalBytes += CalculateTensorMemorySize(initializer);
-            }
-
-            // Calculate memory for sparse initializers
-            foreach (var sparseInit in model.Graph.SparseInitializer)
-            {
-                if (sparseInit.Values != null)
-                {
-                    totalBytes += CalculateTensorMemorySize(sparseInit.Values);
-                }
-                if (sparseInit.Indices != null)
-                {
-                    totalBytes += CalculateTensorMemorySize(sparseInit.Indices);
-                }
-            }
-
-            return totalBytes;
-        }
-
-        /// <summary>
-        /// Calculates memory size for an input tensor, resolving dynamic dimensions
-        /// </summary>
-        private long CalculateInputTensorSize(Onnx.ValueInfoProto input, Dictionary<string, int[]> inputDimensions)
-        {
-            if (input.Type?.TensorType?.Shape == null)
-            {
-                return 1024 * 1024; // Default to 1MB if unknown
-            }
-
-            long elementCount = 1;
-
-            // If specific dimensions provided for this input, use them
-            if (inputDimensions.TryGetValue(input.Name, out int[] providedDims))
-            {
-                foreach (var dim in providedDims)
-                {
-                    elementCount *= dim;
-                }
-            }
-            else
-            {
-                // Use shape from model, resolving dynamic dimensions
-                foreach (var dim in input.Type.TensorType.Shape.Dim)
-                {
-                    if (dim.DimValue > 0)
-                    {
-                        elementCount *= dim.DimValue;
-                    }
-                    else if (!string.IsNullOrEmpty(dim.DimParam))
-                    {
-                        // Dynamic dimension (e.g., batch_size) - use default of 1
-                        elementCount *= 1;
-                    }
-                    else
-                    {
-                        // Unknown dimension - assume 1
-                        elementCount *= 1;
-                    }
-                }
-            }
-
-            int bytesPerElement = GetBytesPerElement(input.Type.TensorType.ElemType);
-            return elementCount * bytesPerElement;
-        }
-
-        /// <summary>
-        /// Calculates memory size for a single tensor
-        /// </summary>
-        private long CalculateTensorMemorySize(Onnx.TensorProto tensor)
-        {
-            long elementCount = CalculateElementCount(tensor.Dims);
-            int bytesPerElement = GetBytesPerElement(tensor.DataType);
-
-            return elementCount * bytesPerElement;
-        }
-
-        /// <summary>
-        /// Calculates the number of elements in a tensor based on dimensions
-        /// </summary>
-        private long CalculateElementCount(Google.Protobuf.Collections.RepeatedField<long> dims)
-        {
-            if (dims == null || dims.Count == 0)
-            {
-                return 0;
-            }
-
-            long count = 1;
-            foreach (var dim in dims)
-            {
-                if (dim <= 0)
-                {
-                    return 0;
-                }
-                count *= dim;
-            }
-
-            return count;
-        }
-
-        /// <summary>
-        /// Returns the size in bytes for each data type
-        /// </summary>
-        private int GetBytesPerElement(int dataType)
-        {
-            return dataType switch
-            {
-                1 => 4,   // FLOAT (32-bit)
-                2 => 1,   // UINT8
-                3 => 1,   // INT8
-                4 => 2,   // UINT16
-                5 => 2,   // INT16
-                6 => 4,   // INT32
-                7 => 8,   // INT64
-                8 => 4,   // STRING (approximate)
-                9 => 1,   // BOOL
-                10 => 2,  // FLOAT16
-                11 => 8,  // DOUBLE
-                12 => 4,  // UINT32
-                13 => 8,  // UINT64
-                14 => 8,  // COMPLEX64
-                15 => 16, // COMPLEX128
-                16 => 2,  // BFLOAT16
-                17 => 1,  // FLOAT8E4M3FN
-                18 => 1,  // FLOAT8E4M3FNUZ
-                19 => 1,  // FLOAT8E5M2
-                20 => 1,  // FLOAT8E5M2FNUZ
-                21 => 1,  // UINT4 (0.5 bytes, rounded up)
-                22 => 1,  // INT4 (0.5 bytes, rounded up)
-                23 => 1,  // FLOAT4E2M1
-                24 => 1,  // FLOAT8E8M0
-                _ => 4    // Default to 4 bytes
-            };
-        }
 
         /// <summary>
         /// Creates a single partition node containing the entire model
@@ -383,7 +340,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 OutputNames = model.Graph.Output.Select(o => o.Name).ToList(),
                 StartNodeIndex = 0,
                 EndNodeIndex = model.Graph.Node.Count,
-                EstimatedMemoryBytes = CalculateModelMemorySize(model, inputDimensions),
+                EstimatedMemoryBytes = _sizeService.CalculateModelMemorySize(model, inputDimensions),
                 ExecutionLevel = 0
             };
 
@@ -495,7 +452,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             long availableMemoryBytes)
         {
             // Calculate optimal number of partitions based on memory constraints
-            long totalMemory = CalculateModelMemorySize(model, new Dictionary<string, int[]>());
+            long totalMemory = _sizeService.CalculateModelMemorySize(model, new Dictionary<string, int[]>());
             int targetPartitionCount = Math.Max(2, (int)Math.Ceiling((double)totalMemory / availableMemoryBytes));
             
             // Use greedy balanced partitioning with edge cut minimization
@@ -571,7 +528,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 int nodeIdx = availableNodes.Dequeue();
                 if (processedNodes.Contains(nodeIdx)) continue;
 
-                long nodeMemory = CalculateNodeMemory(nodes[nodeIdx], tensorMemorySizes);
+                long nodeMemory = _sizeService.CalculateNodeMemory(nodes[nodeIdx], tensorMemorySizes);
 
                 // Find best partition for this node (minimize edge cuts and balance load)
                 int bestPartition = FindBestPartitionForNode(
@@ -1010,7 +967,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 // Grow branch while memory permits and no conflicts
                 while (currentNode >= 0 && !assignedNodes.Contains(currentNode))
                 {
-                    long nodeMemory = CalculateNodeMemory(nodes[currentNode], tensorMemorySizes);
+                    long nodeMemory = _sizeService.CalculateNodeMemory(nodes[currentNode], tensorMemorySizes);
                     
                     if (branchMemory + nodeMemory > availableMemoryBytes && branch.Count > 0)
                     {
@@ -1109,7 +1066,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 }
 
                 // Calculate memory
-                totalMemory += CalculateNodeMemory(node, tensorMemorySizes);
+                totalMemory += _sizeService.CalculateNodeMemory(node, tensorMemorySizes);
             }
 
             partition.InputNames = inputs.ToList();
@@ -1212,110 +1169,12 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         /// <summary>
         /// Builds a map of tensor names to their memory sizes
+        /// Now uses the complete memory calculation that includes all intermediate tensors
         /// </summary>
         private Dictionary<string, long> BuildTensorMemoryMap(Onnx.GraphProto graph, Dictionary<string, int[]> inputDimensions)
         {
-            var memoryMap = new Dictionary<string, long>();
-
-            // Add input tensors with resolved dimensions
-            foreach (var input in graph.Input)
-            {
-                memoryMap[input.Name] = CalculateInputTensorSize(input, inputDimensions);
-            }
-
-            // Add initializers (weights)
-            foreach (var initializer in graph.Initializer)
-            {
-                memoryMap[initializer.Name] = CalculateTensorMemorySize(initializer);
-            }
-
-            // Add intermediate tensors
-            foreach (var valueInfo in graph.ValueInfo)
-            {
-                // Estimate memory for intermediate tensors with dimension resolution
-                long estimatedSize = EstimateTensorSize(valueInfo, inputDimensions);
-                memoryMap[valueInfo.Name] = estimatedSize;
-            }
-
-            return memoryMap;
-        }
-
-        /// <summary>
-        /// Estimates tensor size from ValueInfo, resolving dynamic dimensions where possible
-        /// </summary>
-        private long EstimateTensorSize(Onnx.ValueInfoProto valueInfo, Dictionary<string, int[]> inputDimensions)
-        {
-            if (valueInfo.Type?.TensorType?.Shape == null)
-            {
-                return 1024 * 1024; // Default to 1MB if unknown
-            }
-
-            long elementCount = 1;
-            foreach (var dim in valueInfo.Type.TensorType.Shape.Dim)
-            {
-                if (dim.DimValue > 0)
-                {
-                    elementCount *= dim.DimValue;
-                }
-                else if (!string.IsNullOrEmpty(dim.DimParam))
-                {
-                    // Dynamic dimension - try to resolve from input dimensions
-                    long resolvedDim = TryResolveDynamicDimension(dim.DimParam, inputDimensions);
-                    elementCount *= resolvedDim;
-                }
-                else
-                {
-                    // Unknown dimension - assume conservative estimate
-                    elementCount *= 100;
-                }
-            }
-
-            int bytesPerElement = GetBytesPerElement(valueInfo.Type.TensorType.ElemType);
-            return elementCount * bytesPerElement;
-        }
-
-        /// <summary>
-        /// Attempts to resolve a dynamic dimension parameter using input dimensions
-        /// </summary>
-        private long TryResolveDynamicDimension(string dimParam, Dictionary<string, int[]> inputDimensions)
-        {
-            // Try to find the dimension in any of the provided inputs
-            foreach (var inputDims in inputDimensions.Values)
-            {
-                if (inputDims != null && inputDims.Length > 0)
-                {
-                    // Common patterns: batch_size is usually the first dimension
-                    if (dimParam.ToLowerInvariant().Contains("batch"))
-                    {
-                        return inputDims[0];
-                    }
-                }
-            }
-
-            // Default to 1 if can't resolve
-            return 1;
-        }
-
-        /// <summary>
-        /// Calculates memory required by a node's outputs
-        /// </summary>
-        private long CalculateNodeMemory(Onnx.NodeProto node, Dictionary<string, long> tensorMemorySizes)
-        {
-            long totalMemory = 0;
-
-            foreach (var output in node.Output)
-            {
-                if (tensorMemorySizes.TryGetValue(output, out long size))
-                {
-                    totalMemory += size;
-                }
-                else
-                {
-                    totalMemory += 1024 * 1024; // Default 1MB for unknown tensors
-                }
-            }
-
-            return totalMemory;
+            // Use the comprehensive memory map builder from OnnxSizeService
+            return _sizeService.BuildCompleteTensorMemoryMap(graph, inputDimensions);
         }
     }
 }

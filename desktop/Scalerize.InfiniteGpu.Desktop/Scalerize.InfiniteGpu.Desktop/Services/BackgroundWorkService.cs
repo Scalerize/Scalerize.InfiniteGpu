@@ -393,12 +393,12 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
             try
             {
-                var stopwatch = Stopwatch.StartNew();
-
                 var modelBytes = await DownloadModelAsync(subtask, cancellationToken);
 
                 var inputs = await _inputParsingService.BuildNamedInputsAsync(
                     subtask.ParametersJson, cancellationToken);
+
+                var stopwatch = Stopwatch.StartNew();
 
                 var inferenceResult = await _onnxRuntimeService.ExecuteOnnxModelAsync(
                     modelBytes, inputs, cancellationToken);
