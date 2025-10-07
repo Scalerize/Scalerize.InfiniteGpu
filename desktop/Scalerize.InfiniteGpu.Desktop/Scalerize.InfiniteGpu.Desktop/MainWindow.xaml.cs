@@ -468,17 +468,17 @@ namespace Scalerize.InfiniteGpu.Desktop
             var result = new JsonObject
             {
                 ["timestamp"] = DateTimeOffset.UtcNow,
-                ["cpuCores"] = snapshot.CpuCores,
-                ["cpuFrequencyGhz"] = snapshot.CpuFrequencyGhz,
-                ["videoMemoryAvailable"] = snapshot.GpuTotalRam,
-                ["gpuName"] = snapshot.GpuName,
-                ["gpuVendor"] = snapshot.GpuVendor,
-                ["memoryTotalGb"] = snapshot.MemoryTotalGb,
-                ["memoryAvailableGb"] = snapshot.MemoryAvailableGb,
-                ["networkDownlinkMbps"] = snapshot.NetworkDownlinkMbps,
-                ["networkLatencyMs"] = snapshot.NetworkLatencyMs,
-                ["storageFreeGb"] = snapshot.StorageFreeGb,
-                ["storageTotalGb"] = snapshot.StorageTotalGb
+                ["cpuCores"] = snapshot.Cpu.Cores,
+                ["cpuFrequencyGhz"] = snapshot.Cpu.FrequencyGhz,
+                ["videoMemoryAvailable"] = snapshot.Gpu.VideoRamGb,
+                ["gpuName"] = snapshot.Gpu.Name,
+                ["gpuVendor"] = snapshot.Gpu.Vendor,
+                ["memoryTotalGb"] = snapshot.Memory.TotalGb,
+                ["memoryAvailableGb"] = snapshot.Memory.AvailableGb,
+                ["networkDownlinkMbps"] = snapshot.Network.DownlinkMbps,
+                ["networkLatencyMs"] = snapshot.Network.LatencyMs,
+                ["storageFreeGb"] = snapshot.Storage.FreeGb,
+                ["storageTotalGb"] = snapshot.Storage.TotalGb
             };
 
             return result;

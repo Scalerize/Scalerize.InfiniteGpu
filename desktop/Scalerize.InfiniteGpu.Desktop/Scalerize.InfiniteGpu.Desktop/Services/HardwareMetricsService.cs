@@ -8,18 +8,25 @@ using System.Threading.Tasks;
 
 namespace Scalerize.InfiniteGpu.Desktop.Services
 {
-    public sealed record HardwareMetricsSnapshot(
-        int? CpuCores,
-        double? CpuFrequencyGhz,
-        double? GpuTotalRam,
-        string? GpuName,
-        string? GpuVendor,
-        double? MemoryTotalGb,
-        double? MemoryAvailableGb,
-        double? NetworkDownlinkMbps,
-        double? NetworkLatencyMs,
-        double? StorageFreeGb,
-        double? StorageTotalGb);
+    public sealed record HardwareMetricsSnapshot(CpuInfosDto Cpu, GpuInfosDto Gpu, MemoryInfosDto Memory, NpuInfosDto Npu, StorageInfosDto Storage, NetworkInfosDto Network);
+
+    public record GpuInfosDto(
+        string? Name,
+        string? Vendor,
+        double? VideoRamGb,
+        int? Cores,
+        double? FrequencyMhz,
+        double? MemoryClockMhz);
+
+    public record CpuInfosDto(int Cores, double FrequencyGhz);
+
+    public record NetworkInfosDto(double? DownlinkMbps, double? LatencyMs);
+
+    public record StorageInfosDto(double? FreeGb, double? TotalGb);
+
+    public record MemoryInfosDto(double? TotalGb, double? AvailableGb);
+
+    public record NpuInfosDto(string? Name, double? Tops, double? FrequencyMhz);
 
     public sealed class HardwareMetricsService
     {
@@ -32,159 +39,144 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private HardwareMetricsSnapshot CollectInternal(CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var (cpuCores, cpuFrequencyGhz) = GetCpuInfo();
+            var cpu = GetCpuInfo();
+            var gpu = GetGpuInfo();
+            var npu = GetNpuInfo();
+            var memory = GetMemoryInfo();
+            var storage = GetStorageInfo();
+            var network = GetNetworkInfo(cancellationToken);
 
-            cancellationToken.ThrowIfCancellationRequested();
-            var (gpuName, gpuVendor, gpuVideoRam) = GetGpuInfo();
-
-            cancellationToken.ThrowIfCancellationRequested();
-            var (memoryTotalGb, memoryAvailableGb) = GetMemoryInfo();
-
-            cancellationToken.ThrowIfCancellationRequested();
-            var (storageFreeGb, storageTotalGb) = GetStorageInfo();
-
-            cancellationToken.ThrowIfCancellationRequested();
-            var (networkDownlinkMbps, networkLatencyMs) = GetNetworkInfo(cancellationToken);
-
-            return new HardwareMetricsSnapshot(
-                cpuCores,
-                cpuFrequencyGhz,
-                gpuVideoRam,
-                gpuName,
-                gpuVendor,
-                memoryTotalGb,
-                memoryAvailableGb,
-                networkDownlinkMbps,
-                networkLatencyMs,
-                storageFreeGb,
-                storageTotalGb);
+            return new HardwareMetricsSnapshot(cpu, gpu, memory, npu, storage, network);
         }
 
-        public (int? cores, double? frequencyGhz) GetCpuInfo()
+        public CpuInfosDto GetCpuInfo()
         {
-            try
+            using var searcher =
+                new ManagementObjectSearcher("SELECT NumberOfCores, MaxClockSpeed FROM Win32_Processor");
+            using var results = searcher.Get();
+
+            var totalCores = 0;
+            double maxClockMhz = 0;
+
+            foreach (var obj in results.Cast<ManagementObject>())
             {
-                using var searcher = new ManagementObjectSearcher("SELECT NumberOfCores, MaxClockSpeed FROM Win32_Processor");
-                using var results = searcher.Get();
+                totalCores += Convert.ToInt32(obj["NumberOfCores"]);
+                maxClockMhz = Math.Max(maxClockMhz, Convert.ToInt32(obj["MaxClockSpeed"]));
+            }
 
-                var totalCores = 0;
-                double? maxClockMhz = null;
+            if (totalCores <= 0)
+            {
+                totalCores = Environment.ProcessorCount;
+            }
 
-                foreach (var obj in results.Cast<ManagementObject>())
+            double? frequencyGhz = maxClockMhz / 1000;
+
+            return new(totalCores > 0 ? totalCores : Environment.ProcessorCount, frequencyGhz.GetValueOrDefault());
+        }
+
+        public GpuInfosDto GetGpuInfo()
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
+            using var results = searcher.Get();
+
+            var gpu = results.Cast<ManagementObject>().FirstOrDefault();
+            if (gpu is null)
+            {
+                return null;
+            }
+
+            var name = gpu["Name"] as string;
+            var vendor = gpu["AdapterCompatibility"] as string;
+            var videoRam = Convert.ToDouble(gpu["AdapterRAM"]);
+            double? ToGb(double? b) => b.HasValue ? b.Value / 1024d / 1024d / 1024d : null;
+
+            int? cores = null;
+            var videoProcessor = gpu["VideoProcessor"] as string;
+
+            // Try to get current clock speeds
+            double? frequencyMhz = null;
+            double? memoryClockMhz = null;
+
+            // Some drivers expose clock speeds through WMI
+            frequencyMhz = Convert.ToDouble(gpu["CurrentClockSpeed"]);
+
+            return new(name, vendor, ToGb(videoRam), cores, frequencyMhz, memoryClockMhz);
+        }
+
+        public NpuInfosDto GetNpuInfo()
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT * FROM Win32_PnPEntity WHERE PNPClass = 'ComputeAccelerator'");
+            using var results = searcher.Get();
+
+            foreach (var device in results.Cast<ManagementObject>())
+            {
+                var name = device["Name"] as string;
+                var pnpId = device["PNPDeviceID"] as string;
+
+                if (!string.IsNullOrEmpty(name))
                 {
-                    totalCores += ConvertToInt(obj["NumberOfCores"]) ?? 0;
+                    // Try to extract TOPS from device name
+                    var topsMatch = System.Text.RegularExpressions.Regex.Match(
+                        name, @"(\d+(?:\.\d+)?)\s*TOPS",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-                    var maxClockCandidate = ConvertToDouble(obj["MaxClockSpeed"]);
-                    if (maxClockCandidate.HasValue)
+                    double? tops = null;
+                    if (topsMatch.Success && double.TryParse(topsMatch.Groups[1].Value, out var topsValue))
                     {
-                        maxClockMhz = maxClockMhz.HasValue
-                            ? Math.Max(maxClockMhz.Value, maxClockCandidate.Value)
-                            : maxClockCandidate;
+                        tops = topsValue;
                     }
+
+                    // Frequency info is typically not available via WMI for NPUs
+                    return new(name, tops, null);
                 }
-
-                if (totalCores <= 0)
-                {
-                    totalCores = Environment.ProcessorCount;
-                }
-
-                double? frequencyGhz = maxClockMhz.HasValue && maxClockMhz.Value > 0
-                    ? maxClockMhz.Value / 1000d
-                    : null;
-
-                return (totalCores > 0 ? totalCores : null, frequencyGhz);
             }
-            catch
-            {
-                return (Environment.ProcessorCount, null);
-            }
+
+            return null;
         }
 
-        public (string? name, string? vendor, double? frequencyMhz) GetGpuInfo()
+        public MemoryInfosDto GetMemoryInfo()
         {
-            try
+            using var searcher =
+                new ManagementObjectSearcher(
+                    "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
+            using var results = searcher.Get();
+
+            var os = results.Cast<ManagementObject>().FirstOrDefault();
+            if (os is null)
             {
-                using var searcher = new ManagementObjectSearcher("SELECT Name, AdapterCompatibility, DriverVersion, AdapterRAM, VideoProcessor FROM Win32_VideoController");
-                using var results = searcher.Get();
-
-                var gpu = results.Cast<ManagementObject>().FirstOrDefault();
-                if (gpu is null)
-                {
-                    return (null, null, null);
-                }
-
-                var name = gpu["Name"] as string;
-                var vendor = gpu["AdapterCompatibility"] as string;
-
-                var videoRam = ConvertToDouble(gpu["AdapterRAM"]);
-                if (!videoRam.HasValue || videoRam.Value <= 0)
-                {
-                    videoRam = null;
-                }
-                double? ToGb(double? b) => b.HasValue ? b.Value / 1024d / 1024d / 1024d : null;
-
-                return (name, vendor, ToGb(videoRam));
+                return null;
             }
-            catch
-            {
-                return (null, null, null);
-            }
+
+            var totalKb = Convert.ToDouble(os["TotalVisibleMemorySize"]);
+            var freeKb = Convert.ToDouble(os["FreePhysicalMemory"]);
+
+            double? ToGb(double? kb) => kb.HasValue ? kb.Value / 1024d / 1024d : null;
+
+            return new(ToGb(totalKb), ToGb(freeKb));
         }
 
-        public (double? totalGb, double? availableGb) GetMemoryInfo()
+        public StorageInfosDto GetStorageInfo()
         {
-            try
+            var systemRoot = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) ??
+                             string.Empty;
+            var drives = DriveInfo.GetDrives().Where(drive => drive.IsReady).ToArray();
+
+            var systemDrive = drives.FirstOrDefault(drive =>
+                string.Equals(drive.Name, systemRoot, StringComparison.OrdinalIgnoreCase));
+
+            var target = systemDrive ?? drives.FirstOrDefault();
+            if (target is null)
             {
-                using var searcher = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
-                using var results = searcher.Get();
-
-                var os = results.Cast<ManagementObject>().FirstOrDefault();
-                if (os is null)
-                {
-                    return (null, null);
-                }
-
-                var totalKb = ConvertToDouble(os["TotalVisibleMemorySize"]);
-                var freeKb = ConvertToDouble(os["FreePhysicalMemory"]);
-
-                double? ToGb(double? kb) => kb.HasValue ? kb.Value / 1024d / 1024d : null;
-
-                return (ToGb(totalKb), ToGb(freeKb));
+                return null;
             }
-            catch
-            {
-                return (null, null);
-            }
+
+            double ToGb(long bytes) => bytes / 1024d / 1024d / 1024d;
+
+            return new(ToGb(target.AvailableFreeSpace), ToGb(target.TotalSize));
         }
 
-        public (double? freeGb, double? totalGb) GetStorageInfo()
-        {
-            try
-            {
-                var systemRoot = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System)) ?? string.Empty;
-                var drives = DriveInfo.GetDrives().Where(drive => drive.IsReady).ToArray();
-
-                var systemDrive = drives.FirstOrDefault(drive =>
-                    string.Equals(drive.Name, systemRoot, StringComparison.OrdinalIgnoreCase));
-
-                var target = systemDrive ?? drives.FirstOrDefault();
-                if (target is null)
-                {
-                    return (null, null);
-                }
-
-                double ToGb(long bytes) => bytes / 1024d / 1024d / 1024d;
-
-                return (ToGb(target.AvailableFreeSpace), ToGb(target.TotalSize));
-            }
-            catch
-            {
-                return (null, null);
-            }
-        }
-
-        public (double? downlinkMbps, double? latencyMs) GetNetworkInfo(CancellationToken cancellationToken)
+        public NetworkInfosDto GetNetworkInfo(CancellationToken cancellationToken)
         {
             double? downlink = null;
             try
@@ -228,31 +220,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                 }
             }
 
-            return (downlink, latency);
-        }
-
-        private static int? ConvertToInt(object? value)
-        {
-            try
-            {
-                return value is null ? null : Convert.ToInt32(value);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static double? ConvertToDouble(object? value)
-        {
-            try
-            {
-                return value is null ? null : Convert.ToDouble(value);
-            }
-            catch
-            {
-                return null;
-            }
+            return new(downlink, latency);
         }
     }
 }

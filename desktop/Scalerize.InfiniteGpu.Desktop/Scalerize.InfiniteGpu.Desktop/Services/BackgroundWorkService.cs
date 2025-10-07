@@ -223,19 +223,8 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
                     // Collect hardware metrics to get total RAM
                     long? totalRamBytes = null;
-                    try
-                    {
-                        var metrics = await _hardwareMetricsService.CollectAsync(cancellationToken).ConfigureAwait(false);
-                        if (metrics.MemoryTotalGb.HasValue)
-                        {
-                            // Convert GB to bytes
-                            totalRamBytes = (long)(metrics.MemoryTotalGb.Value * 1024 * 1024 * 1024);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[BackgroundWorkService] Failed to collect hardware metrics: {ex}");
-                    }
+                    var metrics = _hardwareMetricsService.GetMemoryInfo();
+                    totalRamBytes = (long)(metrics.TotalGb.Value * 1024 * 1024 * 1024);
 
                     await connection.InvokeAsync("JoinAvailableTasks", string.Empty, "Provider", totalRamBytes, cancellationToken).ConfigureAwait(false);
 
@@ -412,7 +401,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     cancellationToken);
 
                 stopwatch.Stop();
-                 
+
                 var resultPayload = new
                 {
                     subtaskId = subtask.Id,
@@ -421,7 +410,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
                     {
                         durationSeconds = stopwatch.Elapsed.TotalSeconds,
                         device = _onnxRuntimeService.GetExecutionProvider().ToString().ToLowerInvariant(),
-                        memoryGBytes = _hardwareMetricsService.GetMemoryInfo().totalGb.Value
+                        memoryGBytes = _hardwareMetricsService.GetMemoryInfo().TotalGb.Value
                     },
                     outputs = processedOutputs
                 };
