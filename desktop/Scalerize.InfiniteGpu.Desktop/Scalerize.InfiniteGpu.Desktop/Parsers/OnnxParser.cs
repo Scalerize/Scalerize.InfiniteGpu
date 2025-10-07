@@ -1,4 +1,5 @@
 using Google.Protobuf;
+using Scalerize.InfiniteGpu.Desktop.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,12 +8,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Scalerize.InfiniteGpu.Desktop.Services
+namespace Scalerize.InfiniteGpu.Desktop.Parsers
 {
     /// <summary>
     /// Service responsible for parsing ONNX model files and extracting structure information
     /// </summary>
-    public class OnnxParsingService
+    public class OnnxParser
     {
         public Onnx.ModelProto Deserialize(byte[] data)
         {

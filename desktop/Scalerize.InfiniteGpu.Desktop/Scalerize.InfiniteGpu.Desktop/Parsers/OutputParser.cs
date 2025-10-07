@@ -1,5 +1,6 @@
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using Scalerize.InfiniteGpu.Desktop.Services;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -20,9 +21,9 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Scalerize.InfiniteGpu.Desktop.Services
+namespace Scalerize.InfiniteGpu.Desktop.Parsers
 {
-    public sealed class OutputParsingService
+    public sealed class OutputParser
     {
         private static readonly JsonSerializerOptions SerializerOptions = new()
         {
@@ -34,7 +35,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private readonly HttpClient _httpClient;
         private readonly TokenizerService _tokenizer;
 
-        public OutputParsingService(HttpClient httpClient, TokenizerService tokenizerService)
+        public OutputParser(HttpClient httpClient, TokenizerService tokenizerService)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _tokenizer = tokenizerService ?? throw new ArgumentNullException(nameof(tokenizerService));
@@ -103,7 +104,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
             response.EnsureSuccessStatusCode();
 
             var responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var uploadResponse = JsonSerializer.Deserialize<OutputParsingService.OutputUploadUrlResponse>(responseJson, SerializerOptions);
+            var uploadResponse = JsonSerializer.Deserialize<OutputParser.OutputUploadUrlResponse>(responseJson, SerializerOptions);
 
             if (uploadResponse == null)
             {

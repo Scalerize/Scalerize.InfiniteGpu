@@ -1,6 +1,7 @@
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
+using Scalerize.InfiniteGpu.Desktop.Services;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
@@ -20,9 +21,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Scalerize.InfiniteGpu.Desktop.Services
+namespace Scalerize.InfiniteGpu.Desktop.Parsers
 {
-    public sealed class InputParsingService
+    public sealed class InputParser
     {
         private static readonly Regex NpyHeaderRegex = new(@"'descr'\s*:\s*'(?<descr>[^']+)'[^']*'fortran_order'\s*:\s*(?<fortran>True|False)[^']*'shape'\s*:\s*\((?<shape>[^)]*)\)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -44,7 +45,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         private readonly HttpClient _httpClient;
         private readonly TokenizerService _tokenizer;
 
-        public InputParsingService(HttpClient httpClient, TokenizerService tokenizerService)
+        public InputParser(HttpClient httpClient, TokenizerService tokenizerService)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _tokenizer = tokenizerService ?? throw new ArgumentNullException(nameof(tokenizerService));

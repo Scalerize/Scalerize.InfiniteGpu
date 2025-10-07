@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML.OnnxRuntime;
 using Scalerize.InfiniteGpu.Desktop.Constants;
+using Scalerize.InfiniteGpu.Desktop.Parsers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -33,13 +34,13 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
 
         private readonly DeviceIdentifierService _deviceIdentifierService;
         private readonly OnnxRuntimeService _onnxRuntimeService;
-        private readonly OnnxParsingService _onnxParsingService;
+        private readonly OnnxParser _onnxParsingService;
         private readonly OnnxPartitionerService _onnxPartitionerService;
         private readonly HardwareMetricsService _hardwareMetricsService;
         private readonly HttpClient _httpClient;
         private readonly bool _ownsHttpClient;
-        private readonly InputParsingService _inputParsingService;
-        private readonly OutputParsingService _outputParsingService;
+        private readonly InputParser _inputParsingService;
+        private readonly OutputParser _outputParsingService;
         private string? _deviceIdentifier;
         private readonly object _syncRoot = new();
 
@@ -55,9 +56,9 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         public BackgroundWorkService(DeviceIdentifierService deviceIdentifierService,
         OnnxRuntimeService onnxRuntimeService,
         HttpClient httpClient,
-         InputParsingService inputParsingService,
-          OutputParsingService outputParsingService,
-          OnnxParsingService onnxParsingService,
+         InputParser inputParsingService,
+          OutputParser outputParsingService,
+          OnnxParser onnxParsingService,
           OnnxPartitionerService onnxPartitionerService,
           HardwareMetricsService hardwareMetricsService)
         {

@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Web.WebView2.Core;
 using Scalerize.InfiniteGpu.Desktop.Constants;
+using Scalerize.InfiniteGpu.Desktop.Parsers;
 using Scalerize.InfiniteGpu.Desktop.Services;
 using System;
 using System.Collections.Generic;
@@ -93,7 +94,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         private readonly bool _isDevelopment;
         private readonly OnnxRuntimeService _onnxRuntimeService;
-        private readonly OnnxParsingService _onnxParsingService;
+        private readonly OnnxParser _onnxParsingService;
         private readonly HardwareMetricsService _hardwareMetricsService;
         private readonly WebViewCommunicationService _webViewBridge;
         private readonly BackgroundWorkService _backgroundWorkService;
@@ -111,7 +112,7 @@ namespace Scalerize.InfiniteGpu.Desktop
 
         public MainWindow(
             OnnxRuntimeService onnxRuntimeService,
-            OnnxParsingService onnxParsingService,
+            OnnxParser onnxParsingService,
             HardwareMetricsService hardwareMetricsService,
             WebViewCommunicationService webViewCommunicationService,
             BackgroundWorkService backgroundWorkService,

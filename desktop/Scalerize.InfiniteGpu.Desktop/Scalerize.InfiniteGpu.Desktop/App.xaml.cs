@@ -6,6 +6,7 @@ using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Scalerize.InfiniteGpu.Desktop.Constants;
+using Scalerize.InfiniteGpu.Desktop.Parsers;
 using Scalerize.InfiniteGpu.Desktop.Services;
 
 namespace Scalerize.InfiniteGpu.Desktop
@@ -134,14 +135,14 @@ namespace Scalerize.InfiniteGpu.Desktop
 
             services.AddSingleton(_ => CreateHttpClient());
             services.AddSingleton<OnnxRuntimeService>();
-            services.AddSingleton<OnnxParsingService>();
+            services.AddSingleton<OnnxParser>();
             services.AddSingleton<OnnxPartitionerService>();
             services.AddSingleton<OnnxSizeService>();
             services.AddSingleton<HardwareMetricsService>();
             services.AddSingleton<DeviceIdentifierService>();
             services.AddSingleton<WebViewCommunicationService>();
-            services.AddSingleton<InputParsingService>();
-            services.AddSingleton<OutputParsingService>();
+            services.AddSingleton<InputParser>();
+            services.AddSingleton<OutputParser>();
             services.AddSingleton<BackgroundWorkService>();
             services.AddSingleton<TokenizerService>();
             services.AddSingleton<MainWindow>();

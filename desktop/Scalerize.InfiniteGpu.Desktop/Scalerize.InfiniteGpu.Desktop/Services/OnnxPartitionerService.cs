@@ -1,4 +1,5 @@
 using Microsoft.ML.OnnxRuntime;
+using Scalerize.InfiniteGpu.Desktop.Parsers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -112,7 +113,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
     /// </summary>
     public class OnnxPartitionerService
     {
-        private readonly OnnxParsingService _parsingService;
+        private readonly OnnxParser _parsingService;
         private readonly OnnxSizeService _sizeService;
         private const long DEFAULT_MEMORY_THRESHOLD_BYTES = 3L * 1024 * 1024 * 1024;
         
@@ -123,7 +124,7 @@ namespace Scalerize.InfiniteGpu.Desktop.Services
         // Maximum allowed edge cut ratio (communication overhead)
         private const double MAX_EDGE_CUT_RATIO = 0.3; // 30%
 
-        public OnnxPartitionerService(OnnxParsingService parsingService, OnnxSizeService sizeService)
+        public OnnxPartitionerService(OnnxParser parsingService, OnnxSizeService sizeService)
         {
             _parsingService = parsingService ?? throw new ArgumentNullException(nameof(parsingService));
             _sizeService = sizeService ?? throw new ArgumentNullException(nameof(sizeService));
